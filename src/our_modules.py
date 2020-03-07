@@ -448,6 +448,6 @@ class Classifier(nn.Module):
             return self.node_embedding2[x]
 
     def save_trained_embeddings(self, file_path):
-        file = {"first_set_graph": self.node_embedding2, "second_set_graph": self.node_embedding2}
+        file = {"first_set_graph": self.node_embedding1, "second_set_graph": self.node_embedding2}
         torch.save(file, file_path)
 

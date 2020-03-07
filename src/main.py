@@ -12,8 +12,8 @@ import torch.nn as nn
 from sklearn.metrics import roc_auc_score
 from sklearn.utils import shuffle
 from tqdm.autonotebook import tqdm
-from .our_modules import device, Classifier
-from .our_utils import obtain_node_embeddings, process_node_emb, get_home_path, mkdir_p, load_and_process_data, \
+from src.our_modules import device, Classifier
+from src.our_utils import obtain_node_embeddings, process_node_emb, get_home_path, mkdir_p, load_and_process_data, \
     get_data_path
 
 sys.path.append(get_home_path())
@@ -89,6 +89,34 @@ def read_cache_node_embeddings(args, node_list_set, train_set, data_name, set_na
     return node_embedding
 
 
+
+def plot_results(splits, result_path):
+    dfs = []
+    for split_id in splits:
+        try:
+            Results = pickle.load(open(os.path.join(result_path, '{}.pkl'.format(split_id)), 'rb'))
+        except EOFError:
+            continue
+        df = pd.DataFrame(Results)
+        df['train_auc'] = df['AUC'].apply(lambda x: x[0])
+        df['test_auc'] = df['AUC'].apply(lambda x: x[1])
+        df['train_loss'] = df['loss'].apply(lambda x: x[0])
+        df['test_loss'] = df['loss'].apply(lambda x: x[1])
+        df['split_id'] = split_id
+        dfs.append(df[['train_auc', 'test_auc', 'train_loss', 'test_loss']])
+
+    means = pd.concat([df.reset_index() for df in dfs]).groupby('index').agg(lambda x: (round(np.mean(x), 4)))
+    stds = pd.concat([df.reset_index() for df in dfs]).groupby('index').agg(lambda x: (round(np.std(x), 4)))
+
+    fig, axs = plt.subplots(1, 2, figsize=(15, 8))
+    means[['train_auc', 'test_auc']].plot(yerr=stds, ax=axs[0], capsize=4)
+    axs[0].grid()
+    means[['train_loss', 'test_loss']].plot(yerr=stds, ax=axs[1], capsize=4)
+    axs[1].grid()
+    plt.tight_layout()
+    plt.savefig(os.path.join(result_path, 'learning_curve.png'))
+
+
 def perform_experiment(emb_args, home_path, data_path, data_name, split_id, result_path):
     global criterion, optimizer
     pickled_path = os.path.join(data_path, 'processed', data_name, '{}.pkl'.format(split_id))
@@ -128,33 +156,8 @@ def perform_experiment(emb_args, home_path, data_path, data_name, split_id, resu
         #                                                                               test_loss_, test_auc))
     Results = {"AUC": auc, "loss": loss}
     pickle.dump(Results, open(os.path.join(result_path, '{}.pkl'.format(split_id)), 'wb'))
+    torch.save(model, os.path.join(result_path, 'model_{}.mdl'.format(split_id)))
 
-
-def plot_results(splits, result_path):
-    dfs = []
-    for split_id in splits:
-        try:
-            Results = pickle.load(open(os.path.join(result_path, '{}.pkl'.format(split_id)), 'rb'))
-        except EOFError:
-            continue
-        df = pd.DataFrame(Results)
-        df['train_auc'] = df['AUC'].apply(lambda x: x[0])
-        df['test_auc'] = df['AUC'].apply(lambda x: x[1])
-        df['train_loss'] = df['loss'].apply(lambda x: x[0])
-        df['test_loss'] = df['loss'].apply(lambda x: x[1])
-        df['split_id'] = split_id
-        dfs.append(df[['train_auc', 'test_auc', 'train_loss', 'test_loss']])
-
-    means = pd.concat([df.reset_index() for df in dfs]).groupby('index').agg(lambda x: (round(np.mean(x), 4)))
-    stds = pd.concat([df.reset_index() for df in dfs]).groupby('index').agg(lambda x: (round(np.std(x), 4)))
-
-    fig, axs = plt.subplots(1, 2, figsize=(15, 8))
-    means[['train_auc', 'test_auc']].plot(yerr=stds, ax=axs[0], capsize=4)
-    axs[0].grid()
-    means[['train_loss', 'test_loss']].plot(yerr=stds, ax=axs[1], capsize=4)
-    axs[1].grid()
-    plt.tight_layout()
-    plt.savefig(os.path.join(result_path, 'learning_curve.png'))
 
 
 def main():

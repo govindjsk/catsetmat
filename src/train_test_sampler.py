@@ -5,8 +5,8 @@ import os
 from sklearn.model_selection import train_test_split
 from tqdm.autonotebook import tqdm
 
-from .our_utils import mkdir_p, get_default_data_params
-from .data_reader import load_bipartite_hypergraph, get_neg_samp
+from src.our_utils import mkdir_p, get_default_data_params
+from src.data_reader import load_bipartite_hypergraph, get_neg_samp
 
 
 def parse_args():
