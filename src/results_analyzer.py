@@ -5,7 +5,7 @@ import torch
 from matplotlib import pyplot as plt
 import pandas as pd
 
-from src.our_utils import device
+from src.our_utils import device, get_home_path, load_and_process_data, get_data_path
 
 
 def plot_results(splits, result_path):
@@ -71,7 +71,17 @@ def visualize_attn(model, data_point, node_tokens=None):
 
 
 if __name__ == '__main__':
-    pass
-    # attention, tokens = visualize_attn(model, test_data1)
+    data_name = 'sample_mag_acm'
+    split_id = 0
+    home_path = get_home_path()
+    data_path = get_data_path()
+    pickle_path = os.path.join(data_path, 'processed', data_name, '{}.pkl'.format(split_id))
+    model_path = os.path.join(home_path, 'results/{}/model_{}.mdl'.format(data_name, split_id))
+    model = torch.load(model_path)
+
+    _, test_data, _, _, _, _ = load_and_process_data(pickle_path)
+    data_point = [test_data[0]]
+
+    attention, tokens = visualize_attn(model, data_point)
     # call_html()
     # head_view(attention, tokens)
