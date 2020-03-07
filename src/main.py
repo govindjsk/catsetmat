@@ -15,6 +15,7 @@ from tqdm.autonotebook import tqdm
 from src.our_modules import device, Classifier
 from src.our_utils import obtain_node_embeddings, process_node_emb, get_home_path, mkdir_p, load_and_process_data, \
     get_data_path
+from src.results_analyzer import plot_results
 
 sys.path.append(get_home_path())
 from lib.hypersagnn.main import parse_args as parse_embedding_args
@@ -37,6 +38,8 @@ def parse_args():
                         help='Number of epochs. Default is 200.')
     parser.add_argument('--batch_size', type=int, default=300,
                         help='Batch size. Default is 300.')
+    parser.add_argument('--model_save_split_id', type=int, default=0,
+                        help='Split id for which model is to be saved. Default is 0.')
     args = parser.parse_args()
     return args
 
@@ -49,7 +52,7 @@ def process_args(args):
     splits = range(start_split, start_split + num_splits)
     num_epochs = args.num_epochs
     batch_size = args.batch_size
-    return data_name, splits, num_epochs, batch_size
+    return data_name, splits, num_epochs, batch_size, args.model_save_split_id
 
 
 def train(model, data, globaliter=0):
@@ -94,35 +97,7 @@ def read_cache_node_embeddings(args, node_list_set, train_set, data_name, set_na
     return node_embedding
 
 
-
-def plot_results(splits, result_path):
-    dfs = []
-    for split_id in splits:
-        try:
-            Results = pickle.load(open(os.path.join(result_path, '{}.pkl'.format(split_id)), 'rb'))
-        except EOFError:
-            continue
-        df = pd.DataFrame(Results)
-        df['train_auc'] = df['AUC'].apply(lambda x: x[0])
-        df['test_auc'] = df['AUC'].apply(lambda x: x[1])
-        df['train_loss'] = df['loss'].apply(lambda x: x[0])
-        df['test_loss'] = df['loss'].apply(lambda x: x[1])
-        df['split_id'] = split_id
-        dfs.append(df[['train_auc', 'test_auc', 'train_loss', 'test_loss']])
-
-    means = pd.concat([df.reset_index() for df in dfs]).groupby('index').agg(lambda x: (round(np.mean(x), 4)))
-    stds = pd.concat([df.reset_index() for df in dfs]).groupby('index').agg(lambda x: (round(np.std(x), 4)))
-
-    fig, axs = plt.subplots(1, 2, figsize=(15, 8))
-    means[['train_auc', 'test_auc']].plot(yerr=stds, ax=axs[0], capsize=4)
-    axs[0].grid()
-    means[['train_loss', 'test_loss']].plot(yerr=stds, ax=axs[1], capsize=4)
-    axs[1].grid()
-    plt.tight_layout()
-    plt.savefig(os.path.join(result_path, 'learning_curve.png'))
-
-
-def perform_experiment(emb_args, home_path, data_path, data_name, split_id, result_path, num_epochs, batch_size):
+def perform_experiment(emb_args, home_path, data_path, data_name, split_id, result_path, num_epochs, batch_size, model_save_split_id):
     global criterion, optimizer
     pickled_path = os.path.join(data_path, 'processed', data_name, '{}.pkl'.format(split_id))
     train_data, test_data, U_t, V_t, node_list_U, node_list_V = load_and_process_data(pickled_path)
@@ -173,20 +148,21 @@ def perform_experiment(emb_args, home_path, data_path, data_name, split_id, resu
         #                                                                               test_loss_, test_auc))
     Results = {"AUC": auc, "loss": loss}
     pickle.dump(Results, open(os.path.join(result_path, '{}.pkl'.format(split_id)), 'wb'))
-    torch.save(model, os.path.join(result_path, 'model_{}.mdl'.format(split_id)))
+    if split_id == model_save_split_id:
+        torch.save(model, os.path.join(result_path, 'model_{}.mdl'.format(split_id)))
     return model
 
 
 def main():
     set_torch_environment()
-    data_name, splits, num_epochs, batch_size = process_args(parse_args())
+    data_name, splits, num_epochs, batch_size, model_save_split_id = process_args(parse_args())
     emb_args = parse_embedding_args()
     home_path = get_home_path()
     data_path = get_data_path()
     result_path = os.path.join(home_path, 'results', data_name)
     mkdir_p(result_path)
     for split_id in tqdm(splits, 'Split #'):
-        perform_experiment(emb_args, home_path, data_path, data_name, split_id, result_path, num_epochs, batch_size)
+        perform_experiment(emb_args, home_path, data_path, data_name, split_id, result_path, num_epochs, batch_size, model_save_split_id)
     plot_results(splits, result_path)
 
 
