@@ -411,6 +411,10 @@ class Classifier(nn.Module):
         # output = torch.sigmoid(torch.cat([output1,output2],axis=1))
         output = torch.sigmoid(output)
 
+        embedding_after_attn = {"dynamic_u": dynamic1.clone().detach(), \
+                                "static_u": static1.clone().detach(), "dynamic_v": dynamic2.clone().detach(), \
+                                "static_v": static2.clone().detach(), "attn_value": output_attn}
+
         if get_outlier is not None:
             k = get_outlier
             outlier = ((1 - output) * non_pad_mask).topk(k, dim=1, largest=True, sorted=True)[1]
@@ -432,6 +436,18 @@ class Classifier(nn.Module):
             output = output[:, 0, :]
 
         if return_recon:
-            return output, recon_loss1, recon_loss2, output_attn
+            return output, None, embedding_after_attn
         else:
-            return output, output_attn
+            return output, embedding_after_attn
+
+    def return_embeddings(self, x, mode):
+        # x must be tensor of elemnets(index)
+        if mode == 1:
+            return self.node_embedding1[x]
+        else:
+            return self.node_embedding2[x]
+
+    def save_trained_embeddings(self, file_path):
+        file = {"first_set_graph": self.node_embedding2, "second_set_graph": self.node_embedding2}
+        torch.save(file, file_path)
+
