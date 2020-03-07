@@ -1,9 +1,10 @@
 import argparse
 import os
+import sys
 from tqdm.autonotebook import tqdm
-
+from .our_utils import obtain_node_embeddings, get_home_path, get_default_data_params, load_and_process_data
+sys.path.append(get_home_path())
 from lib.hypersagnn.main import parse_args as parse_embedding_args
-from src.our_utils import obtain_node_embeddings, get_home_path, get_default_data_params, load_and_process_data
 
 
 def parse_args():

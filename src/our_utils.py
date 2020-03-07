@@ -7,9 +7,15 @@ import pickle
 import time
 import torch.nn as nn
 import torch
+import sys
 from concurrent.futures import as_completed, ProcessPoolExecutor
 from gensim.models import Word2Vec
 from sklearn.preprocessing import StandardScaler
+
+def get_home_path():
+    return '/home/govinds/repos/catsetmat'
+
+sys.path.append(get_home_path())
 
 from lib.hypersagnn.Modules import Wrap_Embedding
 from lib.hypersagnn.random_walk_hyper import random_walk_hyper
@@ -213,8 +219,6 @@ def get_default_data_params(data_path=None):
     return data_params
 
 
-def get_home_path():
-    return '/home/govinds/repos/catsetmat'
 
 
 def get_data_path():

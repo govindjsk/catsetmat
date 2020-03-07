@@ -7,15 +7,18 @@ import os
 import pandas as pd
 import pickle
 import torch
+import sys
 import torch.nn as nn
 from sklearn.metrics import roc_auc_score
 from sklearn.utils import shuffle
 from tqdm.autonotebook import tqdm
-
-from lib.hypersagnn.main import parse_args as parse_embedding_args
-from src.our_modules import device, Classifier
-from src.our_utils import obtain_node_embeddings, process_node_emb, get_home_path, mkdir_p, load_and_process_data, \
+from .our_modules import device, Classifier
+from .our_utils import obtain_node_embeddings, process_node_emb, get_home_path, mkdir_p, load_and_process_data, \
     get_data_path
+
+sys.path.append(get_home_path())
+from lib.hypersagnn.main import parse_args as parse_embedding_args
+
 
 
 def set_torch_environment():
