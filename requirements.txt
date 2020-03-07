@@ -1,0 +1,10 @@
+tqdm
+sklearn
+tensorflow==1.5
+torch
+torchsummary
+gensim
+matplotlib
+networkx
+cardinality
+pandas
