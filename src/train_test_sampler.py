@@ -96,22 +96,27 @@ def main():
     U, V = load_bipartite_hypergraph(data_params)
 
     for iteration in tqdm(splits, 'Creating splits'):
-        neg_U, neg_V = get_neg_samp(U, V, num_neg=len(U) * neg_factor)
-        data, labels, max_he_U, max_he_V, node_list_U, node_list_V = prepare_data(U, V, neg_U, neg_V)
+        try:
+            f = open(os.path.join(data_params['processed_data_path'], '{}.pkl'.format(iteration)), 'rb')
+            print('Split {} exists. So, not creating a new one.'.format(iteration))
+            f.close()
+        except FileNotFoundError:
+            neg_U, neg_V = get_neg_samp(U, V, num_neg=len(U) * neg_factor)
+            data, labels, max_he_U, max_he_V, node_list_U, node_list_V = prepare_data(U, V, neg_U, neg_V)
 
-        train_data, test_data, train_labels, test_labels = split_data(data, labels, test_ratio=test_ratio)
-        train_data = [(x[0], x[1], l) for x, l in zip(train_data, train_labels)]
-        test_data = [(x[0], x[1], l) for x, l in zip(test_data, test_labels)]
+            train_data, test_data, train_labels, test_labels = split_data(data, labels, test_ratio=test_ratio)
+            train_data = [(x[0], x[1], l) for x, l in zip(train_data, train_labels)]
+            test_data = [(x[0], x[1], l) for x, l in zip(test_data, test_labels)]
 
-        data = {"train_data": train_data,
-                "test_data": test_data,
-                "max_length_u": max_he_U,
-                "max_length_v": max_he_V,
-                'node_list_U': node_list_U,
-                'node_list_V': node_list_V}
-        mkdir_p(data_params['processed_data_path'])
-        pickle.dump(data, open(os.path.join(data_params['processed_data_path'],
-                                            '{}.pkl'.format(iteration)), 'wb'))
+            data = {"train_data": train_data,
+                    "test_data": test_data,
+                    "max_length_u": max_he_U,
+                    "max_length_v": max_he_V,
+                    'node_list_U': node_list_U,
+                    'node_list_V': node_list_V}
+            mkdir_p(data_params['processed_data_path'])
+            pickle.dump(data, open(os.path.join(data_params['processed_data_path'],
+                                                '{}.pkl'.format(iteration)), 'wb'))
 
 
 if __name__ == '__main__':
