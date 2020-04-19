@@ -5,14 +5,15 @@ import torch
 from matplotlib import pyplot as plt
 import pandas as pd
 
-from src.our_utils import device, get_home_path, load_and_process_data, get_data_path
+from src.our_utils import device
 
 
-def plot_results(splits, result_path):
+def plot_results(splits, result_path, model_name):
     dfs = []
     for split_id in splits:
+        pkl_file = os.path.join(result_path, '{}_{}.pkl'.format(model_name, split_id))
         try:
-            Results = pickle.load(open(os.path.join(result_path, '{}.pkl'.format(split_id)), 'rb'))
+            Results = pickle.load(open(pkl_file, 'rb'))
         except EOFError:
             continue
         df = pd.DataFrame(Results)
@@ -25,14 +26,25 @@ def plot_results(splits, result_path):
 
     means = pd.concat([df.reset_index() for df in dfs]).groupby('index').agg(lambda x: (round(np.mean(x), 4)))
     stds = pd.concat([df.reset_index() for df in dfs]).groupby('index').agg(lambda x: (round(np.std(x), 4)))
-
-    fig, axs = plt.subplots(1, 2, figsize=(15, 8))
+    means.to_csv(os.path.join(result_path, 'means.csv'))
+    stds.to_csv(os.path.join(result_path, 'stds.csv'))
+    fig, axs = plt.subplots(1, 2, figsize=(15, 5))
     means[['train_auc', 'test_auc']].plot(yerr=stds, ax=axs[0], capsize=4)
     axs[0].grid()
+    axs[0].set_ylim(0, 1)
+    axs[0].set_xlabel('Epoch')
+    axs[0].set_ylabel('AUC')
+    axs[0].set_title('Learning curve for AUC')
     means[['train_loss', 'test_loss']].plot(yerr=stds, ax=axs[1], capsize=4)
     axs[1].grid()
-    plt.tight_layout()
-    plt.savefig(os.path.join(result_path, 'learning_curve.png'))
+    axs[1].set_ylim(bottom=0)
+    axs[1].set_xlabel('Epoch')
+    axs[1].set_ylabel('Loss')
+    axs[1].set_title('Learning curve for Loss')
+    fig.suptitle('Learning curves for "{}": "{}"'.format(result_path.split('/')[-2], model_name), fontsize=15)
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+    fig_path = os.path.join(result_path, '{}_learning_curve.png'.format(model_name))
+    plt.savefig(fig_path)
 
 
 def visualize_attn(model, data_point, node_tokens=None):
@@ -71,17 +83,7 @@ def visualize_attn(model, data_point, node_tokens=None):
 
 
 if __name__ == '__main__':
-    data_name = 'sample_mag_acm'
-    split_id = 0
-    home_path = get_home_path()
-    data_path = get_data_path()
-    pickle_path = os.path.join(data_path, 'processed', data_name, '{}.pkl'.format(split_id))
-    model_path = os.path.join(home_path, 'results/{}/model_{}.mdl'.format(data_name, split_id))
-    model = torch.load(model_path)
-
-    _, test_data, _, _, _, _ = load_and_process_data(pickle_path)
-    data_point = [test_data[0]]
-
-    attention, tokens = visualize_attn(model, data_point)
+    pass
+    # attention, tokens = visualize_attn(model, test_data1)
     # call_html()
     # head_view(attention, tokens)

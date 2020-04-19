@@ -12,7 +12,7 @@ from src.data_reader import load_bipartite_hypergraph, get_neg_samp
 def parse_args():
     parser = argparse.ArgumentParser(description="CATSETMAT: Train-Test Sampler")
 
-    parser.add_argument('--data_name', type=str, default='sample_mag_acm')
+    parser.add_argument('--data_name', type=str, default='mag_acm')
     parser.add_argument('--num_splits', type=int, default=15,
                         help='Number of train-test-splits / negative-samplings. Default is 15.')
     parser.add_argument('--start_split', type=int, default=0,

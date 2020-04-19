@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 import torch.nn as nn
-
+import pdb
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -134,12 +134,14 @@ class ScaledDotProductAttention(nn.Module):
             if not memory_efficient:
                 # To limit numerical errors from large vector elements outside
                 # the mask, we zero these out.
-                result = torch.nn.functional.softmax(vector * (1 - mask).byte(), dim=dim)
-                result = result * (1 - mask).byte()
-                result = result / (result.sum(dim=dim, keepdim=True) + 1e-13)
-            else:
-                masked_vector = vector.masked_fill((1 - mask).byte(), mask_fill_value)
+                masked_vector = vector.masked_fill(mask.bool(), -float('inf'))
                 result = torch.nn.functional.softmax(masked_vector, dim=dim)
+                result = result * (1 - mask).bool()
+                # result = result / (result.sum(dim=dim, keepdim=True) + 1e-13)
+            else:
+                masked_vector = vector.masked_fill((mask).bool(), mask_fill_value)
+                result = torch.nn.functional.softmax(masked_vector, dim=dim)
+                result = result * (1 - mask).bool()
         return result
 
     def forward(self, q, k, v, diag_mask, mask=None):
@@ -148,7 +150,7 @@ class ScaledDotProductAttention(nn.Module):
         attn = attn / self.temperature
         # if mask is not None:
         #     attn = attn.masked_fill(mask, -float('inf'))
-        attn = self.masked_softmax(attn, mask, dim=-1, memory_efficient=False)
+        attn = self.masked_softmax(attn, mask, dim=-1, memory_efficient=True)
         # attn = torch.nn.functional.softmax(attn, dim=-1)
         output = torch.bmm(attn, v)
         return output, attn
@@ -303,7 +305,7 @@ class cross_attention(nn.Module):
 
         dynamic3v, attn_lv2v = self.slf_attn_lv2_v(dynamic2v, dynamic2v, dynamic2v, diag_mask=None, mask=slf_attn_mask2)
 
-        output_attn = {"self": [attn_lv1u, attn_lv1v, attn_lv2u, attn_lv2v], "cross": [cr_attn_u, cr_attn_v]}
+        output_attn = [attn_lv1u, attn_lv1v, attn_lv2u, attn_lv2v,cr_attn_u, cr_attn_v]
 
         # dynamic1, cr_attn1 = self.mul_head_attn_forward(dynamic_1, static_2, static_2,diag_mask=None,mask= crs_attn_mask1)
         # dynamic2, cr_attn2 = self.mul_head_attn_backward(dynamic_2, static_1, static_1,diag_mask=None,mask= crs_attn_mask2)
@@ -316,6 +318,79 @@ class cross_attention(nn.Module):
         static2 = self.pff_V2(static2 * non_pad_mask2) * non_pad_mask2
         return dynamic1, static1, dynamic2, static2, output_attn
 
+class cross_attention_simple(nn.Module):
+    """A self-attention layer + 2 layered pff"""
+
+    def __init__(self, n_head, d_model, d_k, d_v, dropout_mul, dropout_pff, diag_mask, bottle_neck):
+        super().__init__()
+        self.n_head = n_head
+        self.d_k = d_k
+        self.d_v = d_v
+
+        self.slf_attn_lv1_u = MultiHeadAttention(n_head, d_model, d_k, d_v, dropout=dropout_mul,
+                                                 diag_mask=diag_mask, input_dim=bottle_neck, static_flag=True)
+        self.slf_attn_lv1_v = MultiHeadAttention(n_head, d_model, d_k, d_v, dropout=dropout_mul,
+                                                 diag_mask=diag_mask, input_dim=bottle_neck, static_flag=True)
+
+        self.cross_attn_u = MultiHeadAttention(n_head, d_model, d_k, d_v, dropout=dropout_mul,
+                                               diag_mask=diag_mask, input_dim=bottle_neck, static_flag=False)
+
+        self.cross_attn_v = MultiHeadAttention(n_head, d_model, d_k, d_v, dropout=dropout_mul,
+                                               diag_mask=diag_mask, input_dim=bottle_neck, static_flag=False)
+
+        # self.slf_attn_lv2_u = MultiHeadAttention(n_head, d_model, d_k, d_v, dropout=dropout_mul,
+        #                                          diag_mask=diag_mask, input_dim=bottle_neck, static_flag=False)
+
+        # self.slf_attn_lv2_v = MultiHeadAttention(n_head, d_model, d_k, d_v, dropout=dropout_mul,
+        #                                          diag_mask=diag_mask, input_dim=bottle_neck, static_flag=False)
+
+        self.pff_U1 = PositionwiseFeedForward([d_model, d_model, d_model],
+                                              dropout=dropout_pff, residual=True, layer_norm=True)
+
+        self.pff_U2 = PositionwiseFeedForward([bottle_neck, d_model, d_model],
+                                              dropout=dropout_pff, residual=False, layer_norm=True)
+
+        self.pff_V1 = PositionwiseFeedForward([d_model, d_model, d_model],
+                                              dropout=dropout_pff, residual=True, layer_norm=True)
+
+        self.pff_V2 = PositionwiseFeedForward([bottle_neck, d_model, d_model],
+                                              dropout=dropout_pff, residual=False, layer_norm=True)
+
+    # self.dropout = nn.Dropout(0.2)
+
+    def forward(self, dynamic_1, dynamic_2, static_1, static_2, crs_attn_mask1, crs_attn_mask2, slf_attn_mask1,
+                slf_attn_mask2, non_pad_mask1, non_pad_mask2):
+        """here the static_1 refer to the input embeddings of U_side while static_2 relates the embeddings of V sides
+        and dynamic_1 refer to query embedding of u side(input) and  dynamic_2 refers to embeddings of V sides """
+
+        """only change is now self attention mask and non pad_mask"""  ########
+        # pdb.set_trace()
+        dynamic1u, static1, attn_lv1u = self.slf_attn_lv1_u(dynamic_1, static_1, static_1, diag_mask=None,
+                                                            mask=slf_attn_mask1)
+
+        dynamic1v, static2, attn_lv1v = self.slf_attn_lv1_v(dynamic_2, static_2, static_2, diag_mask=None,
+                                                            mask=slf_attn_mask2)
+
+        dynamic2u, cr_attn_u = self.cross_attn_u(dynamic1u, dynamic1v, dynamic1v, diag_mask=None, mask=crs_attn_mask1)
+
+        dynamic2v, cr_attn_v = self.cross_attn_v(dynamic1v, dynamic1u, dynamic1u, diag_mask=None, mask=crs_attn_mask2)
+
+        # dynamic3u, attn_lv2u = self.slf_attn_lv2_u(dynamic2u, dynamic2u, dynamic2u, diag_mask=None, mask=slf_attn_mask1)
+
+        # dynamic3v, attn_lv2v = self.slf_attn_lv2_v(dynamic2v, dynamic2v, dynamic2v, diag_mask=None, mask=slf_attn_mask2)
+
+        output_attn = [attn_lv1u, attn_lv1v,cr_attn_u, cr_attn_v]
+
+        # dynamic1, cr_attn1 = self.mul_head_attn_forward(dynamic_1, static_2, static_2,diag_mask=None,mask= crs_attn_mask1)
+        # dynamic2, cr_attn2 = self.mul_head_attn_backward(dynamic_2, static_1, static_1,diag_mask=None,mask= crs_attn_mask2)
+        # static1, slf_attn1 = self.mul_head_attn_selfU(dynamic_1, static_1, static_1,diag_mask=None,mask= slf_attn_mask1)
+        # static2, slf_attn2 = self.mul_head_attn_selfV(dynamic_2, static_2, static_2,diag_mask=None,mask= slf_attn_mask2)
+
+        dynamic1 = self.pff_U1(dynamic2u * non_pad_mask1) * non_pad_mask1
+        static1 = self.pff_U2(static1 * non_pad_mask1) * non_pad_mask1
+        dynamic2 = self.pff_V1(dynamic2v * non_pad_mask2) * non_pad_mask2
+        static2 = self.pff_V2(static2 * non_pad_mask2) * non_pad_mask2
+        return dynamic1, static1, dynamic2, static2, output_attn
 
 class Classifier(nn.Module):
     """a classifier is the main model for embeddings"""
@@ -332,6 +407,8 @@ class Classifier(nn.Module):
         self.node_embedding1 = node_embedding1
         self.node_embedding2 = node_embedding2
         self.encode1 = cross_attention(n_head, d_model, d_k, d_v, dropout_mul=0.4, dropout_pff=0.4,
+        #                                diag_mask=diag_mask, bottle_neck=bottle_neck)
+        # self.encode1 = cross_attention_simple(n_head, d_model, d_k, d_v, dropout_mul=0.4, dropout_pff=0.4,
                                        diag_mask=diag_mask, bottle_neck=bottle_neck)
 
         self.diag_mask_flag = diag_mask
@@ -391,8 +468,8 @@ class Classifier(nn.Module):
         else:
             dynamic1, static1, dynamic2, static2, output_attn = self.get_embedding(x, y, cr_attn_mask1, cr_attn_mask2,
                                                                                    slf_attn_mask1, slf_attn_mask2,
-                                                                                   non_pad_mask1, non_pad_mask2,
-                                                                                   return_recon)
+                                                                                   non_pad_mask1, non_pad_mask2,return_recon)
+
         dynamic1 = self.layer_norm1(dynamic1)
         static1 = self.layer_norm2(static1)
         dynamic2 = self.layer_norm3(dynamic2)
@@ -411,10 +488,8 @@ class Classifier(nn.Module):
         # output = torch.sigmoid(torch.cat([output1,output2],axis=1))
         output = torch.sigmoid(output)
 
-        embedding_after_attn = {"dynamic_u": dynamic1.clone().detach(), \
-                                "static_u": static1.clone().detach(), "dynamic_v": dynamic2.clone().detach(), \
-                                "static_v": static2.clone().detach(), "attn_value": output_attn}
-
+        # embedding_after_attn = [[static1,dynamic1],[static2,dynamic2], output_attn]
+        embedding_after_attn=None
         if get_outlier is not None:
             k = get_outlier
             outlier = ((1 - output) * non_pad_mask).topk(k, dim=1, largest=True, sorted=True)[1]
