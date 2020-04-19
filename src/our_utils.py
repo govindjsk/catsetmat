@@ -14,8 +14,9 @@ from sklearn.preprocessing import StandardScaler
 
 def get_home_path():
     # return '/content/drive/My Drive/projects/textual_analysis_email/catsetmat'
-    return "/content/drive/My Drive/textual_analysis_email/catsetmat"
+    # return "/content/drive/My Drive/textual_analysis_email/catsetmat"
     # return '/home/govinds/repos/catsetmat'
+    return "/content/drive/My Drive/repos/govind_swyam/catsetmat"
 
 sys.path.append(get_home_path())
 
@@ -226,7 +227,8 @@ def get_default_data_params(data_path=None):
 def get_data_path():
     # return '/content/drive/My Drive/projects/textual_analysis_email/catsetmat/data'
     # return '/home/govinds/repos/catsetmat/data'
-    return '/content/drive/My Drive/textual_analysis_email/catsetmat/data'
+    # return '/content/drive/My Drive/textual_analysis_email/catsetmat/data'
+    return "/content/drive/My Drive/repos/govind_swyam/catsetmat/data"
 
 
 def main():
