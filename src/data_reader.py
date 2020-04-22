@@ -1,3 +1,4 @@
+from tqdm.autonotebook import tqdm
 import numpy as np
 import os
 import pandas as pd
@@ -48,6 +49,7 @@ def get_neg_samp(U, V, num_neg):
         print('WARNING: Too many ({}) negative samples demanded. Capping to max possible ({}).'.format(num_neg,
                                                                                                        max_num_neg))
         num_neg = max_num_neg
+    pbar = tqdm(total=num_neg)
     while len(non_edges) < num_neg:
         u = random.sample(setU, 1)[0]
         v = random.sample(setV, 1)[0]
@@ -55,6 +57,7 @@ def get_neg_samp(U, V, num_neg):
         if pair in edges or pair in non_edges:
             continue
         non_edges.add(pair)
+        pbar.update(1)
     neg_U, neg_V = zip(*map(lambda x: list(map(list, x)), non_edges))
     assert not all([x in non_edges for x in set(zip(map(frozenset, U), map(frozenset, V)))])
     assert not all([x in edges for x in set(zip(map(frozenset, neg_U), map(frozenset, neg_V)))])

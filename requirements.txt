@@ -1,10 +1,12 @@
 tqdm
+numpy
+pandas
 sklearn
-tensorflow==1.5
+tensorflow
 torch
 torchsummary
 gensim
 matplotlib
 networkx
 cardinality
-pandas
+

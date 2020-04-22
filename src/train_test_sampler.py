@@ -2,6 +2,7 @@ import argparse
 import numpy as np
 import pickle
 import os
+import pdb
 from sklearn.model_selection import train_test_split
 from tqdm.autonotebook import tqdm
 
@@ -93,20 +94,30 @@ def main():
     data_params = get_default_data_params()
     data_params['raw_data_path'] = os.path.join(data_params['raw_data_path'], data_name)
     data_params['processed_data_path'] = os.path.join(data_params['processed_data_path'], data_name)
+    print('Loading bipartite hypergraph...', end='\t')
     U, V = load_bipartite_hypergraph(data_params)
+    print('Done!')
 
-    for iteration in tqdm(splits, 'Creating splits'):
-        try:
-            f = open(os.path.join(data_params['processed_data_path'], '{}.pkl'.format(iteration)), 'rb')
+    for i, iteration in enumerate(splits):
+        print('------ SPLIT#{} ({} of {}) -------'.format(iteration, i+1, len(splits)))
+        pkl_path = os.path.join(data_params['processed_data_path'], '{}.pkl'.format(iteration))
+        if os.path.exists(pkl_path):
             print('Split {} exists. So, not creating a new one.'.format(iteration))
-            f.close()
-        except FileNotFoundError:
+        else:
+            print('Split {} doesn\'t exist. Generating from scratch.'.format(iteration))
+            print('Generating negative samples...')
             neg_U, neg_V = get_neg_samp(U, V, num_neg=len(U) * neg_factor)
-            data, labels, max_he_U, max_he_V, node_list_U, node_list_V = prepare_data(U, V, neg_U, neg_V)
+            print('Done!')
 
+            print('Preparing data...')
+            data, labels, max_he_U, max_he_V, node_list_U, node_list_V = prepare_data(U, V, neg_U, neg_V)
+            print('Done!')
+
+            print('Splitting data...')
             train_data, test_data, train_labels, test_labels = split_data(data, labels, test_ratio=test_ratio)
             train_data = [(x[0], x[1], l) for x, l in zip(train_data, train_labels)]
             test_data = [(x[0], x[1], l) for x, l in zip(test_data, test_labels)]
+            print('Done!')
 
             data = {"train_data": train_data,
                     "test_data": test_data,
@@ -115,8 +126,11 @@ def main():
                     'node_list_U': node_list_U,
                     'node_list_V': node_list_V}
             mkdir_p(data_params['processed_data_path'])
+
+            print('Pickling data...')
             pickle.dump(data, open(os.path.join(data_params['processed_data_path'],
                                                 '{}.pkl'.format(iteration)), 'wb'))
+            print('Done!')
 
 
 if __name__ == '__main__':
