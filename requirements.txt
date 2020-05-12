@@ -9,4 +9,4 @@ gensim
 matplotlib
 networkx
 cardinality
-
+torchvision
