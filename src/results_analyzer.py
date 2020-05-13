@@ -13,10 +13,10 @@ def plot_results(splits, result_path, model_name):
     for split_id in splits:
         pkl_file = os.path.join(result_path, '{}_{}.pkl'.format(model_name, split_id))
         try:
-            Results = pickle.load(open(pkl_file, 'rb'))
+            results = pickle.load(open(pkl_file, 'rb'))
         except EOFError:
             continue
-        df = pd.DataFrame(Results)
+        df = pd.DataFrame(results)
         df['train_auc'] = df['AUC'].apply(lambda x: x[0])
         df['test_auc'] = df['AUC'].apply(lambda x: x[1])
         df['train_loss'] = df['loss'].apply(lambda x: x[0])
@@ -24,8 +24,8 @@ def plot_results(splits, result_path, model_name):
         df['split_id'] = split_id
         dfs.append(df[['train_auc', 'test_auc', 'train_loss', 'test_loss']])
 
-    means = pd.concat([df.reset_index() for df in dfs]).groupby('index').agg(lambda x: (round(np.mean(x), 4)))
-    stds = pd.concat([df.reset_index() for df in dfs]).groupby('index').agg(lambda x: (round(np.std(x), 4)))
+    means = pd.concat([df.reset_index() for df in dfs]).groupby('index').agg(lambda x: (round(float(np.mean(x)), 4)))
+    stds = pd.concat([df.reset_index() for df in dfs]).groupby('index').agg(lambda x: (round(float(np.std(x)), 4)))
     means.to_csv(os.path.join(result_path, 'means.csv'))
     stds.to_csv(os.path.join(result_path, 'stds.csv'))
     fig, axs = plt.subplots(1, 2, figsize=(15, 5))

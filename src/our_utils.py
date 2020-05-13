@@ -1,4 +1,3 @@
-import argparse
 import errno
 import multiprocessing
 import numpy as np
@@ -12,6 +11,7 @@ from concurrent.futures import as_completed, ProcessPoolExecutor
 from gensim.models import Word2Vec
 from sklearn.preprocessing import StandardScaler
 
+
 def get_home_path():
     # return '/content/drive/My Drive/projects/textual_analysis_email/catsetmat'
     # return "/content/drive/My Drive/textual_analysis_email/catsetmat"
@@ -19,6 +19,7 @@ def get_home_path():
     # return "/content/drive/My Drive/repos/govind_swyam/catsetmat"
     # return "/home2/e1-313-15477/govind/repos/catsetmat"
     return "/home/swyamsingh/repos/catsetmat"
+
 
 sys.path.append(get_home_path())
 
@@ -146,8 +147,6 @@ def get_default_data_params(data_path=None):
                    'r_v_list_file': 'p_k_list_train.txt',
                    'processed_data_path': os.path.join(data_path, 'processed')}
     return data_params
-
-
 
 
 def get_data_path():

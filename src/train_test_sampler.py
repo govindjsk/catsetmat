@@ -2,9 +2,7 @@ import argparse
 import numpy as np
 import pickle
 import os
-import pdb
 from sklearn.model_selection import train_test_split
-from tqdm.autonotebook import tqdm
 
 from src.our_utils import mkdir_p, get_default_data_params
 from src.data_reader import load_bipartite_hypergraph, get_neg_samp
