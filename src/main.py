@@ -1,10 +1,8 @@
 import argparse
-from time import sleep
 import pdb
 import matplotlib.pyplot as plt
 import numpy as np
 import os
-import pandas as pd
 import pickle
 import torch
 import sys
@@ -16,10 +14,6 @@ from src.our_modules import device, Classifier
 from src.our_utils import obtain_node_embeddings, process_node_emb, get_home_path, mkdir_p, load_and_process_data, \
     get_data_path
 from src.results_analyzer import plot_results
-from src import train_test_sampler
-from src import embedding_storer
-
-sys.path.append(get_home_path())
 from lib.hypersagnn.main import parse_args as parse_embedding_args
 from lib.fspool.main import EMB_LAYER
 
@@ -62,31 +56,34 @@ def process_args(args):
     batch_size = args.batch_size
     return data_name, splits, num_epochs, batch_size, args.model_save_split_id, args.dim, args.model_name
 
+
 def data_modify(data):
     u_, v_, l_ = zip(*data)
-    npoints_u=[len(x[x>0].tolist())for x in u_]
-    npoints_v=[len(x[x>0].tolist())for x in v_]
+    npoints_u = [len(x[x > 0].tolist()) for x in u_]
+    npoints_v = [len(x[x > 0].tolist()) for x in v_]
     # pdb.set_trace()
-    mask_u=torch.cat([(x>0).float().view(1,x.shape[0],1) for x in u_ ],dim=0)
-    mask_v=torch.cat([(x>0).float().view(1,x.shape[0],1) for x in v_ ],dim=0)
+    mask_u = torch.cat([(x > 0).float().view(1, x.shape[0], 1) for x in u_], dim=0)
+    mask_v = torch.cat([(x > 0).float().view(1, x.shape[0], 1) for x in v_], dim=0)
 
-    return u_,npoints_u,v_,npoints_v,mask_u,mask_v,l_
+    return u_, npoints_u, v_, npoints_v, mask_u, mask_v, l_
 
-   
+
 def train(model, data, globaliter=0, model_name='catsetmat'):
     globaliter += 1
     model.train()
-    
+
     # FSPOOL:
     if model_name == 'fspool':
-        U,n_points_U,V,n_points_V,mask_U,mask_V,l_=data_modify(data)
-        U=torch.cat(U,dim=0).view(len(U),U[0].shape[0]).to(device)
-        V=torch.cat(V,dim=0).view(len(V),V[0].shape[0]).to(device)
+        U, n_points_U, V, n_points_V, mask_U, mask_V, l_ = data_modify(data)
+        U = torch.cat(U, dim=0).view(len(U), U[0].shape[0]).to(device)
+        V = torch.cat(V, dim=0).view(len(V), V[0].shape[0]).to(device)
         gold = torch.Tensor(l_).view(-1, 1).to(device)
-        inputs = (U,V,  torch.from_numpy(np.array((list(map(int,n_points_U))))).to(device), torch.from_numpy(np.array(list(map(int,n_points_V)))).to(device),mask_U.to(device),mask_V.to(device))
+        inputs = (U, V, torch.from_numpy(np.array((list(map(int, n_points_U))))).to(device),
+                  torch.from_numpy(np.array(list(map(int, n_points_V)))).to(device), mask_U.to(device),
+                  mask_V.to(device))
         label = model(inputs)
         loss = nn.BCEWithLogitsLoss()(label, gold).to(device)
-    
+
     # CATSETMAT:
     if model_name == 'catsetmat':
         u_, v_, l_ = zip(*data)
@@ -95,13 +92,13 @@ def train(model, data, globaliter=0, model_name='catsetmat'):
         output, weights = model(xx, yy)
         loss = criterion(output, torch.from_numpy(np.array(l_)).float().to(device))
         label = output.squeeze(-1)
-        del xx,yy,weights
+        del xx, yy, weights
         torch.cuda.empty_cache()
-    
+
     optimizer.zero_grad()
     loss.backward()
-    optimizer.step()    
-    auc = roc_auc_score(l_ , label.cpu().detach().numpy())
+    optimizer.step()
+    auc = roc_auc_score(l_, label.cpu().detach().numpy())
     return loss.item(), auc, None
 
 
@@ -110,10 +107,12 @@ def test(model, data, model_name='catsetmat'):
 
     # FSPOOL:
     if model_name == 'fspool':
-        U,n_points_U,V,n_points_V,mask_U,mask_V,l_=data_modify(data)
-        U=torch.cat(U,dim=0).view(len(U),U[0].shape[0]).to(device)
-        V=torch.cat(V,dim=0).view(len(V),V[0].shape[0]).to(device)
-        inputs = (U,V,  torch.from_numpy(np.array((list(map(int,n_points_U))))).to(device), torch.from_numpy(np.array(list(map(int,n_points_V)))).to(device),mask_U.to(device),mask_V.to(device))
+        U, n_points_U, V, n_points_V, mask_U, mask_V, l_ = data_modify(data)
+        U = torch.cat(U, dim=0).view(len(U), U[0].shape[0]).to(device)
+        V = torch.cat(V, dim=0).view(len(V), V[0].shape[0]).to(device)
+        inputs = (U, V, torch.from_numpy(np.array((list(map(int, n_points_U))))).to(device),
+                  torch.from_numpy(np.array(list(map(int, n_points_V)))).to(device), mask_U.to(device),
+                  mask_V.to(device))
         gold = torch.Tensor(l_).view(-1, 1).to(device)
         label = model(inputs)
         loss = nn.BCEWithLogitsLoss()(label, gold).to(device)
@@ -127,7 +126,7 @@ def test(model, data, model_name='catsetmat'):
         loss = criterion(output, torch.from_numpy(np.array(l_)).float().to(device))
         label = output.squeeze(-1)
 
-    auc = roc_auc_score(l_ , label.cpu().detach().numpy())
+    auc = roc_auc_score(l_, label.cpu().detach().numpy())
     return loss.item(), auc, None
 
 
@@ -140,12 +139,14 @@ def read_cache_node_embeddings(args, node_list_set, train_set, data_name, set_na
         A = np.load(file_name, allow_pickle=True)
     except FileNotFoundError:
         print('Cache not found. Generating...')
-        A = obtain_node_embeddings(args, node_list_set, train_set, data_name, set_name, split_id, base_path, silent=silent)
+        A = obtain_node_embeddings(args, node_list_set, train_set, data_name, set_name, split_id, base_path,
+                                   silent=silent)
     node_embedding = process_node_emb(A, node_list_set, args)
     return node_embedding
 
 
-def perform_experiment(emb_args, home_path, data_path, data_name, split_id, result_path, num_epochs, batch_size, model_save_split_id, model_name):
+def perform_experiment(emb_args, home_path, data_path, data_name, split_id, result_path, num_epochs, batch_size,
+                       model_save_split_id, model_name):
     global criterion, optimizer
     pickled_path = os.path.join(data_path, 'processed', data_name, '{}.pkl'.format(split_id))
     train_data, test_data, U_t, V_t, node_list_U, node_list_V = load_and_process_data(pickled_path)
@@ -155,27 +156,27 @@ def perform_experiment(emb_args, home_path, data_path, data_name, split_id, resu
 
     # FSPOOL:
     if model_name == 'fspool':
-        U,n_points_U,V,n_points_V,mask_U,mask_V,l_=data_modify(train_data)
+        U, n_points_U, V, n_points_V, mask_U, mask_V, l_ = data_modify(train_data)
         hidden_dim = 128
         latent_dim = emb_args.dimensions
-        model = EMB_LAYER(node_embedding_U,node_embedding_V,0,latent_dim+1,
-              latent_dim,hidden_dim,
-              set_size_U=max(n_points_U),
-              set_size_V = max(n_points_V),
-              skip=False,relaxed=False).to(device)
+        model = EMB_LAYER(node_embedding_U, node_embedding_V, 0, latent_dim + 1,
+                          latent_dim, hidden_dim,
+                          set_size_U=max(n_points_U),
+                          set_size_V=max(n_points_V),
+                          skip=False, relaxed=False).to(device)
         optimizer = torch.optim.Adam(model.parameters(), lr=0.0001, weight_decay=1E-6)
-    
+
     # CATSETMAT:
     if model_name == 'catsetmat':
         latent_dim = emb_args.dimensions
         model = Classifier(n_head=8,
-                       d_model=latent_dim,
-                       d_k=int(latent_dim/4) if latent_dim >= 4 else 1,
-                       d_v=int(latent_dim/4) if latent_dim >= 4 else 1,
-                       node_embedding1=node_embedding_U,
-                       node_embedding2=node_embedding_V,
-                       diag_mask=False,
-                       bottle_neck=latent_dim).to(device).to(device)
+                           d_model=latent_dim,
+                           d_k=int(latent_dim / 4) if latent_dim >= 4 else 1,
+                           d_v=int(latent_dim / 4) if latent_dim >= 4 else 1,
+                           node_embedding1=node_embedding_U,
+                           node_embedding2=node_embedding_V,
+                           diag_mask=False,
+                           bottle_neck=latent_dim).to(device).to(device)
         criterion = nn.BCELoss().to(device)
         optimizer = torch.optim.AdamW(model.parameters(), lr=0.001, weight_decay=1e-6)
     pytorch_total_params = sum(p.numel() for p in model.parameters())
@@ -209,8 +210,8 @@ def perform_experiment(emb_args, home_path, data_path, data_name, split_id, resu
         # print('({}/{})'.format(round(train_auc, 4), round(test_auc, 4)), end=' ')
         # print("epoch {} :train loss {} and auc {}: test loss {} and auc {} : ".format(i, train_loss_, train_auc,
         #                                                                               test_loss_, test_auc))
-    Results = {"AUC": auc, "loss": loss}
-    pickle.dump(Results, open(os.path.join(result_path, '{}_{}.pkl'.format(model_name, split_id)), 'wb'))
+    results = {"AUC": auc, "loss": loss}
+    pickle.dump(results, open(os.path.join(result_path, '{}_{}.pkl'.format(model_name, split_id)), 'wb'))
     if split_id == model_save_split_id:
         torch.save(model, os.path.join(result_path, 'model_{}_{}.mdl'.format(model_name, split_id)))
     return model
@@ -225,10 +226,10 @@ def main():
     data_path = get_data_path()
     result_path = os.path.join(home_path, 'results', data_name, 'res')
     mkdir_p(result_path)
-    # for split_id in tqdm(splits, 'Split #'):
     for i, split_id in enumerate(splits):
         print('------- SPLIT#{} ({} of {}) -------'.format(split_id, i, len(splits)))
-        perform_experiment(emb_args, home_path, data_path, data_name, split_id, result_path, num_epochs, batch_size, model_save_split_id, model_name)
+        perform_experiment(emb_args, home_path, data_path, data_name, split_id, result_path, num_epochs, batch_size,
+                           model_save_split_id, model_name)
     plot_results(splits, result_path, model_name)
 
 
