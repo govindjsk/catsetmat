@@ -18,7 +18,8 @@ def get_home_path():
     # return '/home/govinds/repos/catsetmat'
     # return "/content/drive/My Drive/repos/govind_swyam/catsetmat"
     # return "/home2/e1-313-15477/govind/repos/catsetmat"
-    return "/home/swyamsingh/repos/catsetmat"
+    # return "/home/swyamsingh/repos/catsetmat"
+    return "C:\\cygwin64\\home\\Nidhi\\repos\\catsetmat"
 
 
 sys.path.append(get_home_path())
@@ -155,7 +156,8 @@ def get_data_path():
     # return '/content/drive/My Drive/textual_analysis_email/catsetmat/data'
     # return "/content/drive/My Drive/repos/govind_swyam/catsetmat/data"
     # return "/home2/e1-313-15477/govind/repos/catsetmat/data"
-    return "/home/swyamsingh/repos/catsetmat/data"
+    # return "/home/swyamsingh/repos/catsetmat/data"
+    return "C:\\cygwin64\\home\\Nidhi\\repos\\catsetmat\\data"
 
 
 def main():
