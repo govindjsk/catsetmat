@@ -41,7 +41,7 @@ def plot_results(splits, result_path, model_name):
     axs[1].set_xlabel('Epoch')
     axs[1].set_ylabel('Loss')
     axs[1].set_title('Learning curve for Loss')
-    fig.suptitle('Learning curves for "{}": "{}"'.format(result_path.split('/')[-2], model_name), fontsize=15)
+    fig.suptitle('Learning curves for "{}": "{}"'.format(result_path.split(os.path.sep)[-2], model_name), fontsize=15)
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
     fig_path = os.path.join(result_path, '{}_learning_curve.png'.format(model_name))
     plt.savefig(fig_path)
