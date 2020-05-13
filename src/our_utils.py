@@ -90,23 +90,22 @@ def obtain_node_embeddings(args, node_list, hyperedges, data_name, set_name, spl
     walk_path = random_walk_hyper(args, node_list, hyperedges, data_name, set_name, split_id, base_path, silent)
     walks = np.loadtxt(walk_path, delimiter=" ").astype('int')
     start = time.time()
-    split_num = 20
-    pool = ProcessPoolExecutor(max_workers=split_num)
-    process_list = []
-    walks = np.array_split(walks, split_num)
-
-    result = []
-    if not silent:
-        print("Start turning path to strs")
-    for walk in walks:
-        process_list.append(pool.submit(walkpath2str, walk, silent))
-
-    for p in as_completed(process_list):
-        result += p.result()
-
-    pool.shutdown(wait=True)
-
-    walks = result
+    if os.name != 'nt':
+        split_num = 20
+        pool = ProcessPoolExecutor(max_workers=split_num)
+        walks = np.array_split(walks, split_num)
+        if not silent:
+            print("Start turning path to strs")
+        process_list = []
+        for walk in walks:
+            process_list.append(pool.submit(walkpath2str, walk, silent))
+        results = []
+        for p in as_completed(process_list):
+            results += p.result()
+        pool.shutdown(wait=True)
+        walks = results
+    else:
+        walks = walkpath2str(walks, silent)
     if not silent:
         print(
             "Finishing Loading and processing %.2f s" %
