@@ -1,11 +1,8 @@
 import argparse
-import pdb
-import matplotlib.pyplot as plt
 import numpy as np
 import os
 import pickle
 import torch
-import sys
 import torch.nn as nn
 from sklearn.metrics import roc_auc_score
 from sklearn.utils import shuffle
@@ -61,7 +58,6 @@ def data_modify(data):
     u_, v_, l_ = zip(*data)
     npoints_u = [len(x[x > 0].tolist()) for x in u_]
     npoints_v = [len(x[x > 0].tolist()) for x in v_]
-    # pdb.set_trace()
     mask_u = torch.cat([(x > 0).float().view(1, x.shape[0], 1) for x in u_], dim=0)
     mask_v = torch.cat([(x > 0).float().view(1, x.shape[0], 1) for x in v_], dim=0)
 
@@ -207,9 +203,6 @@ def perform_experiment(emb_args, home_path, data_path, data_name, split_id, resu
         auc.append((train_auc, test_auc))
         t.set_description("AUC train: {}, test: {}".format(round(train_auc, 4), round(test_auc, 4)))
         t.refresh()
-        # print('({}/{})'.format(round(train_auc, 4), round(test_auc, 4)), end=' ')
-        # print("epoch {} :train loss {} and auc {}: test loss {} and auc {} : ".format(i, train_loss_, train_auc,
-        #                                                                               test_loss_, test_auc))
     results = {"AUC": auc, "loss": loss}
     pickle.dump(results, open(os.path.join(result_path, '{}_{}.pkl'.format(model_name, split_id)), 'wb'))
     if split_id == model_save_split_id:
