@@ -17,7 +17,6 @@ os.environ["KMP_AFFINITY"] = 'none'
 weight_1st = 1.0
 weight_degree = -0.5
 
-
 # print(weight_1st, weight_degree)
 
 
@@ -156,45 +155,37 @@ def get_first_order(G):
     VE_over_delta = G.VE_over_delta
     node_nbr = G.node_nbr
     node_degree = G.node_degree
-
-    processes_num = 80
-    pool = ProcessPoolExecutor(max_workers=processes_num)
-    process_list = []
-
     nodes = np.copy(G.nodes)
-
-    split_num = min(processes_num, int(len(nodes) / 100)) + 1
-    if not SILENT:
-        print("split_num", split_num)
     np.random.shuffle(nodes)
-    nodes = np.array_split(nodes, split_num)
-
-    if not SILENT:
-        print("Start get first order")
-    for node in nodes:
-        process_list.append(pool.submit(get_first_order_part, node))
-
-    alias_n2n_1st = {}
-    node2ff_1st = {}
-    for p in as_completed(process_list):
-        alias_t1, alias_t2 = p.result()
-        alias_n2n_1st.update(alias_t1)
-        node2ff_1st.update(alias_t2)
-
-    pool.shutdown(wait=True)
-
+    try:
+        processes_num = 80
+        pool = ProcessPoolExecutor(max_workers=processes_num)
+        split_num = min(processes_num, int(len(nodes) / 100)) + 1
+        if not SILENT:
+            print("split_num", split_num)
+        nodes = np.array_split(nodes, split_num)
+        if not SILENT:
+            print("Start get first order")
+        process_list = []
+        for node in nodes:
+            process_list.append(pool.submit(get_first_order_part, node))
+        alias_n2n_1st = {}
+        node2ff_1st = {}
+        for p in as_completed(process_list):
+            alias_t1, alias_t2 = p.result()
+            alias_n2n_1st.update(alias_t1)
+            node2ff_1st.update(alias_t2)
+        pool.shutdown(wait=True)
+    except ValueError:
+        alias_n2n_1st, node2ff_1st = get_first_order_part(nodes)
     if not SILENT:
         print("start turn dict to list")
-
     nodes = np.copy(G.nodes)
-
     alias_n2n_1st_list = [[] for n in nodes]
     node2ff_1st_list = [[] for n in nodes]
-
     for n in nodes:
         alias_n2n_1st_list[n] = alias_n2n_1st[n]
         node2ff_1st_list[n] = node2ff_1st[n]
-
     return alias_n2n_1st_list, node2ff_1st_list
 
 
@@ -326,35 +317,32 @@ def parallel_get_second_order(G):
 
     # f is a csr-matrix
     # O(\sum_v (\sum_e\in nbr(v) |e|)^2)
-
-    processes_num = 80
-    pool = ProcessPoolExecutor(max_workers=processes_num)
-    process_list = []
-
     second_start = time.time()
-
     nodes = np.copy(G.nodes)
-
-    split_num = min(processes_num, int(len(nodes) / 100)) * 2 + 1
-    if not SILENT:
-        print("split_num", split_num)
     np.random.shuffle(nodes)
-    nodes = np.array_split(nodes, split_num)
+    try:
+        processes_num = 80
+        pool = ProcessPoolExecutor(max_workers=processes_num)
 
-    if not SILENT:
-        print("Start get second order alias")
-    for node in nodes:
-        process_list.append(pool.submit(get_second_order, node))
-
-    alias_n2n_2nd = {}
-    for p in as_completed(process_list):
-        alias_t1 = p.result()
-        alias_n2n_2nd.update(alias_t1)
-
+        split_num = min(processes_num, int(len(nodes) / 100)) * 2 + 1
+        if not SILENT:
+            print("split_num", split_num)
+        nodes = np.array_split(nodes, split_num)
+        if not SILENT:
+            print("Start get second order alias")
+        process_list = []
+        for node in nodes:
+            process_list.append(pool.submit(get_second_order, node))
+        alias_n2n_2nd = {}
+        for p in as_completed(process_list):
+            alias_t1 = p.result()
+            alias_n2n_2nd.update(alias_t1)
+        pool.shutdown(wait=True)
+    except ValueError:
+        alias_n2n_2nd = get_second_order(nodes)
     if not SILENT:
         print("get-second-order-term running time: " +
               str(time.time() - second_start))
-
     if not SILENT:
         print("Start to turn the dict into list")
     alias_n2n_2nd_list = []
@@ -362,11 +350,8 @@ def parallel_get_second_order(G):
     for i, k in enumerate(tqdm(alias_n2n_2nd.keys(), 'n2n') if not SILENT else alias_n2n_2nd.keys()):
         alias_n2n_toid[k] = i
         alias_n2n_2nd_list.append(alias_n2n_2nd[k])
-
     G.alias_n2n_toid = alias_n2n_toid
     G.alias_n2n_2nd_list = alias_n2n_2nd_list
-
-    pool.shutdown(wait=True)
     return alias_n2n_2nd
 
 
@@ -412,37 +397,33 @@ def simulate_walks_para(G, num_walks, walk_length):
     alias_n2n_1st = G.alias_n2n_1st
     alias_n2n_2nd_list = G.alias_n2n_2nd_list
     alias_n2n_toid = G.alias_n2n_toid
-
-    processes_num = 30
-    pool = ProcessPoolExecutor(max_workers=processes_num)
-    process_list = []
-
-    if not SILENT:
-        print("sample walks:")
-    walks = []
-
     nodes = np.copy(G.nodes)
 
-    split_num = processes_num
-    if not SILENT:
-        print("split_num", split_num)
-    np.random.shuffle(nodes)
-    nodes = np.array_split(nodes, split_num)
-
-    for node in nodes:
-        process_list.append(
-            pool.submit(
-                simulate_walks_part,
-                num_walks,
-                walk_length,
-                node))
-
-    for p in as_completed(process_list):
-        alias_t1 = p.result()
-        walks += alias_t1
-
-    pool.shutdown(wait=True)
-
+    if os.name != 'nt':
+        processes_num = 30
+        pool = ProcessPoolExecutor(max_workers=processes_num)
+        if not SILENT:
+            print("sample walks:")
+        split_num = processes_num
+        if not SILENT:
+            print("split_num", split_num)
+        np.random.shuffle(nodes)
+        nodes = np.array_split(nodes, split_num)
+        process_list = []
+        for node in nodes:
+            process_list.append(
+                pool.submit(
+                    simulate_walks_part,
+                    num_walks,
+                    walk_length,
+                    node))
+        walks = []
+        for p in as_completed(process_list):
+            alias_t1 = p.result()
+            walks += alias_t1
+        pool.shutdown(wait=True)
+    else:
+        walks = simulate_walks_part(num_walks, walk_length, nodes)
     if not SILENT:
         print("start permutation")
     idx = np.random.permutation(len(walks))
