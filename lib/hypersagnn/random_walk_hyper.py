@@ -1,5 +1,5 @@
 from concurrent.futures import as_completed, ProcessPoolExecutor
-from scipy.sparse import csr_matrix, lil_matrix, csc_matrix
+from scipy.sparse import csr_matrix, lil_matrix
 from tqdm.autonotebook import tqdm, trange
 import time
 import numpy as np
@@ -17,7 +17,8 @@ os.environ["KMP_AFFINITY"] = 'none'
 weight_1st = 1.0
 weight_degree = -0.5
 
-print(weight_1st, weight_degree)
+
+# print(weight_1st, weight_degree)
 
 
 def make_sparse_matrix(raw_data, m, n):
@@ -29,11 +30,11 @@ def make_sparse_matrix(raw_data, m, n):
 
 
 def alias_setup(probs):
-    '''
+    """
     Compute utility lists for non-uniform sampling from discrete distributions.
     Refer to https://hips.seas.harvard.edu/blog/2013/03/03/the-alias-method-efficient-sampling-with-many-discrete-outcomes/
     for details
-    '''
+    """
     K = len(probs)
     q = np.zeros(K)
     J = np.zeros(K, dtype=np.int)
@@ -62,9 +63,9 @@ def alias_setup(probs):
 
 
 def alias_draw(P):
-    '''
+    """
     Draw sample from a non-uniform discrete distribution using alias sampling.
-    '''
+    """
     J, q = P
     K = len(J)
 
@@ -252,7 +253,7 @@ def get_alias_n2n_2nd(src, dst):
         # pp[i] *= ((ff_all_1.sum() + ff_all_2.sum()) ** 0.5)
 
     ff_1st = node2ff_1st[dst]
-    #pp += np.random.randn(pp.shape[0]) * 0.5
+    # pp += np.random.randn(pp.shape[0]) * 0.5
     pp *= (ff_1st ** weight_1st)
     pp *= (node_degree[dst_nbr] ** weight_degree)
 
@@ -264,9 +265,7 @@ def get_alias_n2n_2nd(src, dst):
 
 def get_alias_n2n_2nd_dropped(src, dst):
     dst_nbr = node_nbr[dst]
-
     pp = np.zeros(len(dst_nbr))
-
     e1_all = src_dst_2e[(src, dst)]
     # ff_all_1 = EV[e1_all, :dst] * VE[:dst]
     # ff_all_2 = EV[e1_all, dst+1:] * VE[dst+1:]
@@ -307,6 +306,8 @@ def get_second_order(nodes):
         for dst_index, dst in enumerate(dsts):
             alias_n2n_2nd[(src, dst)] = get_alias_n2n_2nd(src, dst)
     return alias_n2n_2nd
+
+
 # for multi-processing
 
 
@@ -352,7 +353,7 @@ def parallel_get_second_order(G):
 
     if not SILENT:
         print("get-second-order-term running time: " +
-          str(time.time() - second_start))
+              str(time.time() - second_start))
 
     if not SILENT:
         print("Start to turn the dict into list")
@@ -404,9 +405,9 @@ def simulate_walks_part(num_walks, walk_length, nodes):
 
 
 def simulate_walks_para(G, num_walks, walk_length):
-    '''
+    """
     Repeatedly simulate random walks from each node.
-    '''
+    """
     global alias_n2n_1st, alias_n2n_2nd_list, alias_n2n_toid
     alias_n2n_1st = G.alias_n2n_1st
     alias_n2n_2nd_list = G.alias_n2n_2nd_list
@@ -454,7 +455,7 @@ def toint(hyperedge_list):
     return np.array([h.astype('int') for h in hyperedge_list])
 
 
-def random_walk_hyper(args, node_list, hyperedge_list, data_name, set_name, split_id, base_path, silent = False):
+def random_walk_hyper(args, node_list, hyperedge_list, data_name, set_name, split_id, base_path, silent=False):
     global SILENT
     SILENT = silent
     p, q = args.p, args.q
