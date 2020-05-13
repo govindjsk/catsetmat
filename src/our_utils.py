@@ -56,14 +56,14 @@ def load_and_process_data(pickled_path):
     U__ = []
     V__ = []
     for i in range(len(U_t)):
-        U__.append(torch.from_numpy(pad_zeros_np(U_t[i], max_he_U)))
-        V__.append(torch.from_numpy(pad_zeros_np(V_t[i], max_he_V)))
+        U__.append(torch.from_numpy(pad_zeros_np(U_t[i], max_he_U)).long())
+        V__.append(torch.from_numpy(pad_zeros_np(V_t[i], max_he_V)).long())
 
     U__t = []
     V__t = []
     for i in range(len(U_tes)):
-        U__t.append(torch.from_numpy(pad_zeros_np(U_tes[i], max_he_U)))
-        V__t.append(torch.from_numpy(pad_zeros_np(V_tes[i], max_he_V)))
+        U__t.append(torch.from_numpy(pad_zeros_np(U_tes[i], max_he_U)).long())
+        V__t.append(torch.from_numpy(pad_zeros_np(V_tes[i], max_he_V)).long())
 
     train_data = list(zip(U__, V__, label_t))
     test_data = list(zip(U__t, V__t, label_tes))
