@@ -4,6 +4,7 @@ import os
 import pickle
 import torch
 import torch.nn as nn
+from torch.utils.tensorboard import SummaryWriter
 from sklearn.metrics import roc_auc_score
 from sklearn.utils import shuffle
 from tqdm.autonotebook import tqdm
@@ -145,6 +146,8 @@ def perform_experiment(emb_args, home_path, data_path, data_name, split_id, resu
                        model_save_split_id, model_name):
     global criterion, optimizer
     pickled_path = os.path.join(data_path, 'processed', data_name, '{}.pkl'.format(split_id))
+    summary_path = os.path.join(home_path, 'runs', data_name)
+    writer = SummaryWriter(summary_path)
     train_data, test_data, U_t, V_t, node_list_U, node_list_V = load_and_process_data(pickled_path)
     base_path = home_path
     node_embedding_U = read_cache_node_embeddings(emb_args, node_list_U, U_t, data_name, 'U', split_id, base_path)
@@ -201,6 +204,11 @@ def perform_experiment(emb_args, home_path, data_path, data_name, split_id, resu
         test_loss, test_auc, test_weights = test(model, test_data, model_name=model_name)
         loss.append((train_loss, test_loss))
         auc.append((train_auc, test_auc))
+        writer.add_scalars('{}.{}.{}/AUC'.format(model_name, split_id, emb_args.dimensions), {'train': train_auc,
+                                    'test': test_auc}, i)
+        writer.add_scalars('{}.{}.{}/Loss'.format(model_name, split_id, emb_args.dimensions), {'train': train_loss,
+                                    'test': test_loss}, i)
+        # writer.add_scalar(f'AUC/Test', test_auc, i)
         t.set_description("AUC train: {}, test: {}".format(round(train_auc, 4), round(test_auc, 4)))
         t.refresh()
     results = {"AUC": auc, "loss": loss}
