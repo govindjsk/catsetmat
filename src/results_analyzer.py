@@ -5,7 +5,7 @@ import torch
 from matplotlib import pyplot as plt
 import pandas as pd
 
-from src.our_utils import device
+from src.our_modules import device
 
 
 def plot_results(splits, result_path, model_name):

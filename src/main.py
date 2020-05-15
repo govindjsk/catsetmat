@@ -9,9 +9,8 @@ from src.results_analyzer import plot_results_by_max
 sys.path.append(get_home_path())
 from lib.hypersagnn.main import parse_args as parse_embedding_args
 from src.experimenter import perform_experiment
-
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
+from src.our_modules import device
+from multiprocessing import set_start_method
 
 def set_torch_environment():
     torch.backends.cudnn.benchmark = True
