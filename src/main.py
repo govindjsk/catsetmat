@@ -1,19 +1,14 @@
 import argparse
 import os
 import torch
-import torch.nn as nn
-from torch.utils.tensorboard import SummaryWriter
-from sklearn.metrics import roc_auc_score
-from sklearn.utils import shuffle
-from tqdm.autonotebook import tqdm
-from src.our_modules import device, Classifier
-from src.our_utils import obtain_node_embeddings, process_node_emb, get_home_path, mkdir_p, load_and_process_data, \
-    get_data_path
-from src.results_analyzer import plot_results
-from lib.hypersagnn.main import parse_args as parse_embedding_args
-from lib.fspool.main import EMB_LAYER
+import sys
 import multiprocessing
 from concurrent.futures import as_completed, ProcessPoolExecutor
+from src.our_utils import get_home_path, mkdir_p, get_data_path
+from src.results_analyzer import plot_results_by_max
+sys.path.append(get_home_path())
+from lib.hypersagnn.main import parse_args as parse_embedding_args
+from src.experimenter import perform_experiment
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -25,7 +20,6 @@ def set_torch_environment():
 
 def parse_args():
     parser = argparse.ArgumentParser(description="CATSETMAT: Main module")
-
     parser.add_argument('--data_name', type=str, default='sample_mag_acm')
     parser.add_argument('--num_splits', type=int, default=15,
                         help='Number of train-test-splits / negative-samplings. Default is 15.')
@@ -47,7 +41,6 @@ def parse_args():
 
 def process_args(args):
     data_name = args.data_name
-
     num_splits = args.num_splits
     start_split = args.start_split
     splits = range(start_split, start_split + num_splits)
