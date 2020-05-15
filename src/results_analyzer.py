@@ -17,6 +17,9 @@ def plot_results(splits, result_path, model_name):
         except EOFError:
             continue
         df = pd.DataFrame(results)
+        if model_name == 'n2v':
+            print(df)
+            return
         df['train_auc'] = df['AUC'].apply(lambda x: x[0])
         df['test_auc'] = df['AUC'].apply(lambda x: x[1])
         df['train_loss'] = df['loss'].apply(lambda x: x[0])
@@ -24,8 +27,8 @@ def plot_results(splits, result_path, model_name):
         df['split_id'] = split_id
         dfs.append(df[['train_auc', 'test_auc', 'train_loss', 'test_loss']])
 
-    means = pd.concat([df.reset_index() for df in dfs]).groupby('index').agg(lambda x: (round(float(np.mean(x)), 4)))
-    stds = pd.concat([df.reset_index() for df in dfs]).groupby('index').agg(lambda x: (round(float(np.std(x)), 4)))
+    means = pd.concat([df.reset_index() for df in dfs]).groupby('index').agg(lambda x: (round(np.mean(x), 4)))
+    stds = pd.concat([df.reset_index() for df in dfs]).groupby('index').agg(lambda x: (round(np.std(x), 4)))
     means.to_csv(os.path.join(result_path, 'means.csv'))
     stds.to_csv(os.path.join(result_path, 'stds.csv'))
     fig, axs = plt.subplots(1, 2, figsize=(15, 5))
@@ -45,6 +48,40 @@ def plot_results(splits, result_path, model_name):
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
     fig_path = os.path.join(result_path, '{}_learning_curve.png'.format(model_name))
     plt.savefig(fig_path)
+
+
+import statistics  as stat
+
+
+def plot_results_by_max(splits, result_path, model_name,dim,lr):
+    dfs = []
+    list_auc_test=[]
+    list_auc_train=[]
+    # result_list=[]
+    for split_id in splits:
+        pkl_file = os.path.join(result_path, '{}_{}.pkl'.format(model_name, split_id))
+        try:
+            Results = pickle.load(open(pkl_file, 'rb'))
+        except EOFError:
+            continue
+        df = pd.DataFrame(Results)
+        if model_name == 'n2v':
+            print(df)
+            return
+        df['train_auc'] = df['AUC'].apply(lambda x: x[0])
+        df['test_auc'] = df['AUC'].apply(lambda x: x[1])
+
+        list_auc_test.append(max(list(df['test_auc'].values)))
+        list_auc_train.append(max(list(df['train_auc'].values)))
+    
+
+    result_list={"modelname":model_name,"dim":dim,"learning_rate":lr,\
+                 "test_result_mean":np.mean(list_auc_test),"test_result_var":(np.std(list_auc_test))**2,\
+                 "train_result_mean":np.mean(list_auc_train),"train_result_var":(np.std(list_auc_train))**2}
+
+    pickle.dump(result_list, open(os.path.join(result_path, '{}_main.pkl'.format(model_name)), 'wb'))
+
+
 
 
 def visualize_attn(model, data_point, node_tokens=None):

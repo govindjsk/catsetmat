@@ -15,7 +15,7 @@ def parse_args():
                         help='Number of train-test-splits / negative-samplings. Default is 15.')
     parser.add_argument('--start_split', type=int, default=0,
                         help='Start id of splits; splits go from start_split to start_split+num_splits. Default is 0.')
-    parser.add_argument('--dim', type=int, default=0,
+    parser.add_argument('--dim', type=int, default=16,
                         help='Embedding dimension; say 0 for using the default value (64).')
     args = parser.parse_args()
     return args

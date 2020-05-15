@@ -86,9 +86,7 @@ def process_node_emb(A, node_list, args):
     return node_embedding
 
 
-def obtain_node_embeddings(args, node_list, hyperedges, data_name, set_name, split_id, base_path, silent=False):
-    walk_path = random_walk_hyper(args, node_list, hyperedges, data_name, set_name, split_id, base_path, silent)
-    walks = np.loadtxt(walk_path, delimiter=" ").astype('int')
+def w2v_model(walks, emb_args, node_list, silent=False):
     start = time.time()
     if os.name != 'nt':
         split_num = 20
@@ -114,8 +112,8 @@ def obtain_node_embeddings(args, node_list, hyperedges, data_name, set_name, spl
         print("num cpu cores", multiprocessing.cpu_count())
     w2v = Word2Vec(
         walks,
-        size=args.dimensions,
-        window=args.window_size,
+        size=emb_args.dimensions,
+        window=emb_args.window_size,
         min_count=0,
         sg=1,
         iter=1,
@@ -123,6 +121,12 @@ def obtain_node_embeddings(args, node_list, hyperedges, data_name, set_name, spl
     wv = w2v.wv
     A = [wv[str(i)] for i in node_list]
     A = np.array(A)
+    return A
+
+def obtain_node_embeddings(args, node_list, hyperedges, data_name, set_name, split_id, base_path, silent=False):
+    walk_path = random_walk_hyper(args, node_list, hyperedges, data_name, set_name, split_id, base_path, silent)
+    walks = np.loadtxt(walk_path, delimiter=" ").astype('int')
+    A = w2v_model(walks, args, node_list, silent)
     emb_base = os.path.join(base_path, 'walks/embeddings/{}'.format(
         data_name))
     mkdir_p(emb_base)
@@ -131,8 +135,6 @@ def obtain_node_embeddings(args, node_list, hyperedges, data_name, set_name, spl
     if not silent:
         print('Saving embeddings to {}'.format(emb_path))
     np.save(emb_path, A)
-    # np.save("../%s_wv_%d_%s_%s.npy" %
-    #         (args.data, args.dimensions, args.walk, set_name), A)
     return A
 
 

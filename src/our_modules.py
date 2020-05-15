@@ -472,7 +472,7 @@ class Classifier(nn.Module):
         static1 = self.layer_norm2(static1)
         dynamic2 = self.layer_norm3(dynamic2)
         static2 = self.layer_norm4(static2)
-        # sz_b, len_seq, dim = dynamic1.shape
+        sz_b, len_seq, dim = dynamic1.shape
         # pdb.set_trace()
         # output=torch.cat([((dynamic1-static1)**2),((dynamic2-static2)**2)],dim=1)
         output1 = self.pff_classifier1((dynamic1 - static1) ** 2)
