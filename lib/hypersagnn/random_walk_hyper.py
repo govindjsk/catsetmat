@@ -297,8 +297,6 @@ def get_second_order(nodes):
         for dst_index, dst in enumerate(dsts):
             alias_n2n_2nd[(src, dst)] = get_alias_n2n_2nd(src, dst)
     return alias_n2n_2nd
-
-
 # for multi-processing
 
 
