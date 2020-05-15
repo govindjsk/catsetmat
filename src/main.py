@@ -14,6 +14,8 @@ from src.our_utils import obtain_node_embeddings, process_node_emb, get_home_pat
 from src.results_analyzer import plot_results
 from lib.hypersagnn.main import parse_args as parse_embedding_args
 from lib.fspool.main import EMB_LAYER
+import multiprocessing
+from concurrent.futures import as_completed, ProcessPoolExecutor
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -182,7 +184,7 @@ def perform_experiment(emb_args, home_path, data_path, data_name, split_id, resu
     print(pytorch_total_params)
     loss = []
     auc = []
-    t = tqdm(range(num_epochs), 'AUC')
+    t = tqdm(range(num_epochs), 'Split id {} '.format(split_id))
     for i in t:
         train_data1 = shuffle(train_data)
         break_condition = False
@@ -209,16 +211,17 @@ def perform_experiment(emb_args, home_path, data_path, data_name, split_id, resu
         writer.add_scalars('{}.{}.{}/Loss'.format(model_name, split_id, emb_args.dimensions), {'train': train_loss,
                                     'test': test_loss}, i)
         # writer.add_scalar(f'AUC/Test', test_auc, i)
-        t.set_description("AUC train: {}, test: {}".format(round(train_auc, 4), round(test_auc, 4)))
+        t.set_description("Split id {}; AUC train: {}, test: {}".format(split_id, round(train_auc, 4), round(test_auc, 4)))
         t.refresh()
     results = {"AUC": auc, "loss": loss}
     pickle.dump(results, open(os.path.join(result_path, '{}_{}.pkl'.format(model_name, split_id)), 'wb'))
     if split_id == model_save_split_id:
         torch.save(model, os.path.join(result_path, 'model_{}_{}.mdl'.format(model_name, split_id)))
-    return model
+    return results
 
 
 def main():
+    parallel_version = True
     set_torch_environment()
     data_name, splits, num_epochs, batch_size, model_save_split_id, dim, model_name = process_args(parse_args())
     emb_args = parse_embedding_args()
@@ -227,10 +230,27 @@ def main():
     data_path = get_data_path()
     result_path = os.path.join(home_path, 'results', data_name, 'res')
     mkdir_p(result_path)
-    for i, split_id in enumerate(splits):
-        print('------- SPLIT#{} ({} of {}) -------'.format(split_id, i, len(splits)))
-        perform_experiment(emb_args, home_path, data_path, data_name, split_id, result_path, num_epochs, batch_size,
-                           model_save_split_id, model_name)
+    if parallel_version:
+        num_splits = len(splits)
+        max_workers = max(num_splits, multiprocessing.cpu_count())
+        pool = ProcessPoolExecutor(max_workers=max_workers)
+        process_list = []
+        for split_id in splits:
+            process_list.append(pool.submit(perform_experiment, emb_args, home_path, data_path, data_name, split_id,
+                                            result_path, num_epochs, batch_size, model_save_split_id, model_name))
+            print('{} of {} processes scheduled'.format(len(process_list), num_splits))
+        results_list = []
+        for p in as_completed(process_list):
+            results_list.append(p.result())
+            print('{} of {} processes completed'.format(len(results_list), len(process_list)))
+        pool.shutdown(wait=True)
+    else:
+        results_list = []
+        for i, split_id in enumerate(splits):
+            print('------- SPLIT#{} ({} of {}) -------'.format(split_id, i, len(splits)))
+            results = perform_experiment(emb_args, home_path, data_path, data_name, split_id, result_path, num_epochs,
+                                         batch_size, model_save_split_id, model_name)
+            results_list.append(results)
     plot_results(splits, result_path, model_name)
 
 
