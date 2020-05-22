@@ -27,8 +27,7 @@ sys.path.append(get_home_path())
 from lib.hypersagnn.Modules import Wrap_Embedding
 from lib.hypersagnn.random_walk_hyper import random_walk_hyper
 from lib.hypersagnn.utils import walkpath2str
-
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+from src.our_modules import device
 
 
 def mkdir_p(path):
