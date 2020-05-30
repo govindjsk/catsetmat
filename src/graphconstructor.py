@@ -1,7 +1,7 @@
 import networkx as nx
 # from src.node2vec import *
 import numpy as np
-import tqdm
+from tqdm.autonotebook import tqdm
 
 def add_weight(G, u, v):
     if 'weight' not in G[u][v]:
@@ -16,7 +16,7 @@ def read_graph(nodelist, hyperedge_list):
     G = nx.Graph()
     # tot = sum(num)
     G.add_nodes_from(nodelist)
-    for ee in tqdm.tqdm_notebook(hyperedge_list):
+    for ee in tqdm(hyperedge_list):
         e = ee
         edges_to_add = []
         for i in range(len(e)):
