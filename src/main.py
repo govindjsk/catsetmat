@@ -50,7 +50,7 @@ def process_args(args):
 
 
 def main():
-    parallel_version = True
+    parallel_version = False
     set_torch_environment()
     data_name, splits, num_epochs, batch_size, model_save_split_id, dim, model_name, lr = process_args(parse_args())
     emb_args = parse_embedding_args()
