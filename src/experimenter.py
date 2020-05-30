@@ -58,7 +58,7 @@ def train(model, data, globaliter=0, model_name='catsetmat'):
         loss = nn.BCEWithLogitsLoss()(label, gold).to(device)
 
     # CATSETMAT:
-    if model_name == 'catsetmat':
+    if model_name.startswith('catsetmat'):
         u_, v_, l_ = zip(*data)
         xx = torch.cat(u_, dim=0).view(len(u_), u_[0].shape[0]).to(device)
         yy = torch.cat(v_, dim=0).view(len(v_), v_[0].shape[0]).to(device)
@@ -91,7 +91,7 @@ def test(model, data, model_name='catsetmat'):
         loss = nn.BCEWithLogitsLoss()(label, gold).to(device)
 
     # CATSETMAT:
-    if model_name == 'catsetmat':
+    if model_name.startswith('catsetmat'):
         u_, v_, l_ = zip(*data)
         xx = torch.cat(u_, dim=0).view(len(u_), u_[0].shape[0]).to(device)
         yy = torch.cat(v_, dim=0).view(len(v_), v_[0].shape[0]).to(device)
@@ -197,9 +197,12 @@ def perform_experiment(emb_args, home_path, data_path, data_name, split_id, resu
             optimizer = torch.optim.Adam(model.parameters(), lr, weight_decay=1E-6)
 
         # CATSETMAT:
-        if model_name == 'catsetmat':
+        if model_name.startswith('catsetmat'):
+            if '-' not in model_name:
+                model_name = 'catsetmat-x'
             latent_dim = emb_args.dimensions
             # print("catset",latent_dim,lr)
+            model_type = model_name.split('-')[-1]
             model = Classifier(n_head=8,
                                d_model=latent_dim,
                                d_k=int(latent_dim / 4) if latent_dim >= 4 else 1,
@@ -207,7 +210,8 @@ def perform_experiment(emb_args, home_path, data_path, data_name, split_id, resu
                                node_embedding1=node_embedding_U,
                                node_embedding2=node_embedding_V,
                                diag_mask=False,
-                               bottle_neck=latent_dim).to(device).to(device)
+                               bottle_neck=latent_dim,
+                               cross_attn_type=model_type).to(device).to(device)
             criterion = nn.BCELoss().to(device)
             optimizer = torch.optim.AdamW(model.parameters(), lr, weight_decay=1e-6)
         # pytorch_total_params = sum(p.numel() for p in model.parameters())

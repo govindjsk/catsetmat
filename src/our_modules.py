@@ -244,6 +244,55 @@ class MultiHeadAttention(nn.Module):
             return dynamic, attn
 
 
+class OnlyCrossAttention(nn.Module):
+    """A self-attention layer + 2 layered pff"""
+
+    def __init__(self, n_head, d_model, d_k, d_v, dropout_mul, dropout_pff, diag_mask, bottle_neck):
+        super().__init__()
+        self.n_head = n_head
+        self.d_k = d_k
+        self.d_v = d_v
+
+        self.cross_attn_u = MultiHeadAttention(n_head, d_model, d_k, d_v, dropout=dropout_mul,
+                                               diag_mask=diag_mask, input_dim=bottle_neck, static_flag=True)
+
+        self.cross_attn_v = MultiHeadAttention(n_head, d_model, d_k, d_v, dropout=dropout_mul,
+                                               diag_mask=diag_mask, input_dim=bottle_neck, static_flag=True)
+
+        self.pff_U1 = PositionwiseFeedForward([d_model, d_model, d_model],
+                                              dropout=dropout_pff, residual=True, layer_norm=True)
+
+        self.pff_U2 = PositionwiseFeedForward([bottle_neck, d_model, d_model],
+                                              dropout=dropout_pff, residual=False, layer_norm=True)
+
+        self.pff_V1 = PositionwiseFeedForward([d_model, d_model, d_model],
+                                              dropout=dropout_pff, residual=True, layer_norm=True)
+
+        self.pff_V2 = PositionwiseFeedForward([bottle_neck, d_model, d_model],
+                                              dropout=dropout_pff, residual=False, layer_norm=True)
+
+    def forward(self, dynamic_1, dynamic_2, static_1, static_2, crs_attn_mask1, crs_attn_mask2, slf_attn_mask1,
+                slf_attn_mask2, non_pad_mask1, non_pad_mask2):
+        """here the static_1 refer to the input embeddings of U_side while static_2 relates the embeddings of V sides
+        and dynamic_1 refer to query embedding of u side(input) and  dynamic_2 refers to embeddings of V sides """
+
+        """only change is now self attention mask and non pad_mask"""  ########
+        # pdb.set_trace()
+        dynamic2u, static2, cr_attn_u = self.cross_attn_u(dynamic_1, static_2, static_2, diag_mask=None,
+                                                          mask=crs_attn_mask1)
+
+        dynamic2v, static1, cr_attn_v = self.cross_attn_v(dynamic_2, static_1, static_1, diag_mask=None,
+                                                          mask=crs_attn_mask2)
+
+        output_attn = [cr_attn_u, cr_attn_v]
+
+        dynamic1 = self.pff_U1(dynamic2u * non_pad_mask1) * non_pad_mask1
+        static1 = self.pff_U2(static1 * non_pad_mask1) * non_pad_mask1
+        dynamic2 = self.pff_V1(dynamic2v * non_pad_mask2) * non_pad_mask2
+        static2 = self.pff_V2(static2 * non_pad_mask2) * non_pad_mask2
+        return dynamic1, static1, dynamic2, static2, output_attn
+
+
 class CrossAttention(nn.Module):
     """A self-attention layer + 2 layered pff"""
 
@@ -408,10 +457,16 @@ class Classifier(nn.Module):
 
         self.node_embedding1 = node_embedding1
         self.node_embedding2 = node_embedding2
-        self.encode1 = CrossAttention(n_head, d_model, d_k, d_v, dropout_mul=0.4, dropout_pff=0.4,
+        if args['cross_attn_type'] == 'x':
+            model_init = OnlyCrossAttention
+        elif args['cross_attn_type'] == 'sx':
+            model_init = CrossAttentionSimple
+        elif args['cross_attn_type'] == 'sxs':
+            model_init = CrossAttention
+        else:
+            raise Exception('No Cross Attention Type specified.')
+        self.encode1 = model_init(n_head, d_model, d_k, d_v, dropout_mul=0.4, dropout_pff=0.4,
                                       diag_mask=diag_mask, bottle_neck=bottle_neck)
-        # self.encode1 = CrossAttentionSimple(n_head, d_model, d_k, d_v, dropout_mul=0.4, dropout_pff=0.4,
-        #                                     diag_mask=diag_mask, bottle_neck=bottle_neck)
 
         self.diag_mask_flag = diag_mask
         self.layer_norm1 = nn.LayerNorm(d_model)
