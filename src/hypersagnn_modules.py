@@ -1,9 +1,9 @@
 import numpy as np
 import torch
 import torch.nn as nn
+from src.our_modules import device
 
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 # A custom position wise MLP.
