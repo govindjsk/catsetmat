@@ -8,6 +8,7 @@ from sklearn.utils import shuffle
 from tqdm.autonotebook import tqdm
 
 from src.link_predictor import predict_links, get_auc_scores
+from src.hypersagnn_modules import Classifier as Classifier_hypersagnn
 from src.our_modules import device, Classifier
 from src.our_utils import obtain_node_embeddings, process_node_emb, \
     get_home_path, load_and_process_data, w2v_model
@@ -43,6 +44,26 @@ def hyp(data, max_node_u):
     return u_new, v_new, l_
 
 
+def hyp_hypersagnn(data, max_node_u):
+    u_, v_, l_ = zip(*data)
+    print(max_node_u)
+    v_new = []
+    u_new = []
+
+    for x in v_:
+        x = (x[x > 0] + max_node_u + 1)
+        x = (x - 1).tolist()
+        v_new.append(x)
+
+    for i in range(len(v_new)):
+        x = (u_[i][u_[i] > 0])
+        x = (x - 1).tolist()
+        x = x + v_new[i]
+        u_new.append(x)
+
+    return u_new, l_
+
+
 def train(model, data, globaliter=0, model_name='catsetmat'):
     globaliter += 1
     model.train()
@@ -70,6 +91,13 @@ def train(model, data, globaliter=0, model_name='catsetmat'):
         # del xx,yy,weights
         # torch.cuda.empty_cache()
 
+    # HYPERSAGNN:
+    if model_name.startswith('hypersagnn'):
+        u_, l_ = zip(*data)
+        xx = torch.cat(u_, dim=0).view(len(u_), u_[0].shape[0]).to(device)
+        output, weights = model(xx, xx)
+        loss = criterion(output, torch.from_numpy(np.array(l_)).float().to(device))
+        label = output.squeeze(-1)
     optimizer.zero_grad()
     loss.backward()
     optimizer.step()
@@ -100,6 +128,13 @@ def test(model, data, model_name='catsetmat'):
         output, weights = model(xx, yy)
         loss = criterion(output, torch.from_numpy(np.array(l_)).float().to(device))
         label = output.squeeze(-1)
+    # HYPERSAGNN:
+    if model_name.startswith('hypersagnn'):
+        u_, l_ = zip(*data)
+        xx = torch.cat(u_, dim=0).view(len(u_), u_[0].shape[0]).to(device)
+        output, weights = model(xx, xx)
+        loss = criterion(output, torch.from_numpy(np.array(l_)).float().to(device))
+        label = output.squeeze(-1)
 
     auc = roc_auc_score(l_, label.cpu().detach().numpy())
     return loss.item(), auc, None
@@ -120,7 +155,29 @@ def read_cache_node_embeddings(args, node_list_set, train_set, data_name, set_na
     return node_embedding
 
 
-def perform_experiment(emb_args, home_path, data_path, data_name, split_id, result_path, \
+def built_hyper_edges(train_data, test_data, max_node_u):
+    u_train, l_train = hyp_hypersagnn(train_data, max_node_u)
+    u_test, l_test = hyp_hypersagnn(test_data, max_node_u)
+
+    len_tr = max([len(x) for x in u_train])
+    len_t = max([len(x) for x in u_test])
+    max_ = max([len_tr, len_t])
+    U_ = []
+    U_T = []
+    for i in range(len(u_train)):
+        y = [x + 1 for x in u_train[i]]
+        y = [0] * (max_ - len(y)) + y
+        U_.append(torch.from_numpy(np.array(y)).long())
+    for i in range(len(u_test)):
+        y = [x + 1 for x in u_test[i]]
+        y = [0] * (max_ - len(y)) + y
+        U_T.append(torch.from_numpy(np.array(y)).long())
+    train_data = list(zip(U_, l_train))
+    test_data = list(zip(U_T, l_test))
+    return train_data, test_data, u_train, l_train
+
+
+def perform_experiment(emb_args, home_path, data_path, data_name, split_id, result_path,
                        num_epochs, batch_size, model_save_split_id, model_name, lr):
     global criterion, optimizer
     pickled_path = os.path.join(data_path, 'processed', data_name, '{}.pkl'.format(split_id))
@@ -222,6 +279,33 @@ def perform_experiment(emb_args, home_path, data_path, data_name, split_id, resu
                                diag_mask=False,
                                bottle_neck=latent_dim,
                                cross_attn_type=model_type).to(device).to(device)
+            criterion = nn.BCELoss().to(device)
+            optimizer = torch.optim.AdamW(model.parameters(), lr, weight_decay=1e-6)
+
+        # HYPER-SAGNN:
+        if model_name.startswith('hypersagnn'):
+            if '-' not in model_name:
+                model_name = 'hypersagnn-sum'
+            hypersagnn_mode = model_name.split('-')[-1]
+            max_node_u = max(node_list_U)
+            node_list_v = [(x + max_node_u + 1) for x in node_list_V]
+            train_data, test_data, u_train, l_train = built_hyper_edges(train_data, test_data, max_node_u)
+            node_list = node_list_U + node_list_v
+            index = [idx for idx, val in enumerate(l_train) if val != 0]
+            U_train = [np.array(u_train[x], dtype=int) for x in index]
+
+            node_embedding = read_cache_node_embeddings(emb_args, node_list, np.array(U_train), data_name, 'hyp_U',
+                                                        split_id,
+                                                        base_path)
+            latent_dim = emb_args.dimensions
+            model = Classifier_hypersagnn(n_head=8,
+                                          d_model=latent_dim,
+                                          d_k=int(latent_dim / 4) if latent_dim >= 4 else 1,
+                                          d_v=int(latent_dim / 4) if latent_dim >= 4 else 1,
+                                          node_embedding1=node_embedding,
+                                          diag_mask=False,
+                                          bottle_neck=latent_dim,
+                                          hypersagnn_mode=hypersagnn_mode).to(device).to(device)
             criterion = nn.BCELoss().to(device)
             optimizer = torch.optim.AdamW(model.parameters(), lr, weight_decay=1e-6)
         # pytorch_total_params = sum(p.numel() for p in model.parameters())
