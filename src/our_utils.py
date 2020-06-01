@@ -50,27 +50,27 @@ def load_and_process_data(pickled_path):
     train_data, test_data, max_he_U, max_he_V, node_list_U, node_list_V = \
         [data[x] for x in ["train_data", "test_data", "max_length_u",
                            "max_length_v", 'node_list_U', 'node_list_V']]
-    U_t, V_t, label_t = zip(*train_data)
-    U_tes, V_tes, label_tes = zip(*test_data)
-    U__ = []
-    V__ = []
-    for i in range(len(U_t)):
-        U__.append(torch.from_numpy(pad_zeros_np(U_t[i], max_he_U)).long())
-        V__.append(torch.from_numpy(pad_zeros_np(V_t[i], max_he_V)).long())
+    U_train_hes, V_train_hes, label_train = zip(*train_data)
+    U_test_hes, V_test_hes, label_test = zip(*test_data)
+    U_train_hes_tensor = []
+    V_train_hes_tensor = []
+    for i in range(len(U_train_hes)):
+        U_train_hes_tensor.append(torch.from_numpy(pad_zeros_np(U_train_hes[i], max_he_U)).long())
+        V_train_hes_tensor.append(torch.from_numpy(pad_zeros_np(V_train_hes[i], max_he_V)).long())
 
-    U__t = []
-    V__t = []
-    for i in range(len(U_tes)):
-        U__t.append(torch.from_numpy(pad_zeros_np(U_tes[i], max_he_U)).long())
-        V__t.append(torch.from_numpy(pad_zeros_np(V_tes[i], max_he_V)).long())
+    U_test_hes_tensor = []
+    V_test_hes_tensor = []
+    for i in range(len(U_test_hes)):
+        U_test_hes_tensor.append(torch.from_numpy(pad_zeros_np(U_test_hes[i], max_he_U)).long())
+        V_test_hes_tensor.append(torch.from_numpy(pad_zeros_np(V_test_hes[i], max_he_V)).long())
 
-    train_data = list(zip(U__, V__, label_t))
-    test_data = list(zip(U__t, V__t, label_tes))
+    train_data = list(zip(U_train_hes_tensor, V_train_hes_tensor, label_train))
+    test_data = list(zip(U_test_hes_tensor, V_test_hes_tensor, label_test))
 
     # Converting list of hyperedges to a set to remove redundancy
-    U_t = np.array(list(map(lambda x: np.array(list(x)), set(map(frozenset, U_t)))))
-    V_t = np.array(list(map(lambda x: np.array(list(x)), set(map(frozenset, V_t)))))
-    return train_data, test_data, U_t, V_t, node_list_U, node_list_V
+    U_train_hes = np.array(list(map(lambda x: np.array(list(x)), set(map(frozenset, U_train_hes)))))
+    V_train_hes = np.array(list(map(lambda x: np.array(list(x)), set(map(frozenset, V_train_hes)))))
+    return train_data, test_data, U_train_hes, V_train_hes, node_list_U, node_list_V
 
 
 def process_node_emb(A, node_list, args):

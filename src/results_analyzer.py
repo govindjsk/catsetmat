@@ -65,7 +65,7 @@ def plot_results_by_max(splits, result_path, model_name,dim,lr):
         except EOFError:
             continue
         df = pd.DataFrame(Results)
-        if model_name == 'n2v':
+        if model_name in ['n2v', 'lp']:
             print(df)
             return
         df['train_auc'] = df['AUC'].apply(lambda x: x[0])

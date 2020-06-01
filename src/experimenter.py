@@ -6,6 +6,8 @@ import torch.nn as nn
 from sklearn.metrics import roc_auc_score, pairwise
 from sklearn.utils import shuffle
 from tqdm.autonotebook import tqdm
+
+from src.link_predictor import predict_links, get_auc_scores
 from src.our_modules import device, Classifier
 from src.our_utils import obtain_node_embeddings, process_node_emb, \
     get_home_path, load_and_process_data, w2v_model
@@ -183,6 +185,14 @@ def perform_experiment(emb_args, home_path, data_path, data_name, split_id, resu
         print('AUC', auc)
         loss = None
         model = [A_C, A_F]
+    elif model_name == 'lp':
+        train_scores_df, test_scores_df = predict_links(train_data, test_data, U_t, V_t, node_list_U, node_list_V)
+        train_auc_scores = get_auc_scores(train_scores_df)
+        test_auc_scores = get_auc_scores(test_scores_df)
+        auc = test_auc_scores
+        print('AUC', auc)
+        loss = None
+        model = [train_auc_scores, test_auc_scores]
     else:
         # FSPOOL:
         if model_name == 'fspool':
