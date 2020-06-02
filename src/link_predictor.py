@@ -126,9 +126,12 @@ def data_to_SSB(train_data, test_data, node_list_U, node_list_V):
     I, J = zip(*(train_pos_hyperedge_ids+test_pos_hyperedge_ids))
     V = [1]*len(I)
     B = csr_matrix((V, (I, J)), shape=(m, m_))
+    I, J = zip(*(train_pos_hyperedge_ids))
+    V = [1] * len(I)
+    B_train = csr_matrix((V, (I, J)), shape=(m, m_))
     train_neg_hyperedge_ids = [(left_he_id_map[f], right_he_id_map[f_]) for f, f_ in train_neg_hyperedges]
     test_neg_hyperedge_ids = [(left_he_id_map[f], right_he_id_map[f_]) for f, f_ in test_neg_hyperedges]
-    return S, S_, B, train_pos_hyperedge_ids, train_neg_hyperedge_ids,\
+    return S, S_, B, B_train, train_pos_hyperedge_ids, train_neg_hyperedge_ids,\
            test_pos_hyperedge_ids, test_neg_hyperedge_ids
 
 
@@ -146,11 +149,12 @@ def predict_links(train_data, test_data, U_t, V_t, node_list_U, node_list_V):
     # data_home, data_name, i = [prepared_data_params[x] for x in ['data_home', 'data_name', 'i']]
     # s2slp_data = pickle.load(open(os.path.join(data_home, data_name,
     #                                            '{}.{}.s2slp'.format(data_name, i)), 'rb'))
-    S, S_, B, train_pos, train_neg, test_pos, test_neg = data_to_SSB(train_data, test_data, node_list_U, node_list_V)
+    S, S_, B, B_train, train_pos, train_neg, test_pos, test_neg = data_to_SSB(train_data, test_data, node_list_U, node_list_V)
     train_pairs = train_pos + train_neg
     train_labels = [1] * len(train_pos) + [0] * len(train_neg)
     test_pairs = test_pos + test_neg
     test_labels = [1] * len(test_pos) + [0] * len(test_neg)
+    B = B_train
     A = S * B * S_.T
     B_nbrs, B_nbrs_ = get_bipartite_nbrs(B)
     A_nbrs, A_nbrs_ = get_bipartite_nbrs(A)
