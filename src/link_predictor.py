@@ -173,7 +173,8 @@ def predict_links(train_data, test_data, U_t, V_t, node_list_U, node_list_V):
             f_v_ = set(elements_[v_])  # Set of nodes incident to hyperedge ids v and v_
             count = 0
             for i, j in product(f_v, f_v_):  # i \in f_v, j \in f_v_
-                scores = get_lp_scores(i, j, A_nbrs, A_nbrs_)
+
+                scores = get_lp_scores(i, j, A_wo_vv_nbrs, A_wo_vv_nbrs_)
                 _ = {result['A_{}'.format(a)].append(s) for a, s in scores.items()}
                 count += 1
             for a in scores:
