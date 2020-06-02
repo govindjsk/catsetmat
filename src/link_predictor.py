@@ -164,6 +164,10 @@ def predict_links(train_data, test_data, U_t, V_t, node_list_U, node_list_V):
             scores = get_lp_scores(v, v_, B_nbrs, B_nbrs_)
             result.update({'B_{}'.format(a): s for a, s in scores.items()})
 
+            B_wo_vv_ = B.copy()
+            B_wo_vv_[v, v_] = 0
+            A_wo_vv_ = S * B_wo_vv_ * S_.T
+            A_wo_vv_nbrs, A_wo_vv_nbrs_ = get_bipartite_nbrs(A_wo_vv_)
             result.update({'A_{}'.format(a): [] for a in scores})
             f_v = set(elements[v])
             f_v_ = set(elements_[v_])  # Set of nodes incident to hyperedge ids v and v_
